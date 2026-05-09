@@ -1,17 +1,19 @@
 import { useMemo, useState } from "react";
 import { Icon } from "@iconify/react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { miningWalletRules, reductionRules, withdrawFeeDistributionRules } from "../../data/mockData";
+import { useTranslation } from "react-i18next";
+import { NETE_CHAIN, getContractConfigMissingKeys, isContractConfigReady } from "../../config/neteRuntime";
 import { useWalletConnector } from "../../hooks/useWalletConnector";
 import { getRuntimeConfig } from "../../services/neteApi";
 import { activateMiner, approveNeteToCore, claimReward, readTierConfigs, readUserMiningData, withdrawProfit } from "../../services/neteContracts";
 import { formatTokenAmount } from "../../utils/formatters";
 
 const MINING_VIEWS = [
-  { key: "my-miners", label: "我的矿机" },
-  { key: "buy-miners", label: "购买矿机" },
-  { key: "rules", label: "规则说明" },
+  { key: "buy-miners", labelKey: "modules.mining.tabs.buyMiners" },
+  { key: "my-miners", labelKey: "modules.mining.tabs.myMiners" },
+  { key: "rules", labelKey: "modules.mining.tabs.rules" },
 ];
+const MINING_CONTRACT_KEYS = ["neteToken", "neteCore"];
 
 function parsePercent(rateText) {
   const parsed = Number(String(rateText || "").replace("%", ""));
@@ -27,10 +29,11 @@ function formatDaysByEpoch(endAt) {
 }
 
 export default function MiningPage() {
+  const { t } = useTranslation();
   const wallet = useWalletConnector();
   const queryClient = useQueryClient();
 
-  const [activeView, setActiveView] = useState("my-miners");
+  const [activeView, setActiveView] = useState("buy-miners");
   const [selectedModel, setSelectedModel] = useState(null);
   const [purchaseAmount, setPurchaseAmount] = useState("1");
   const [acceptedAgreement, setAcceptedAgreement] = useState(false);
@@ -66,7 +69,7 @@ export default function MiningPage() {
   const machineModels = useMemo(
     () =>
       (tiersQuery.data || []).map((tier) => ({
-        model: `${formatTokenAmount(tier.principal, 18, 0)} 型`,
+        model: t("modules.mining.modelName", { amount: formatTokenAmount(tier.principal, 18, 0) }),
         price: Number(tier.principalText),
         principalWei: tier.principal,
         unitCount: tier.maxSlots,
@@ -78,7 +81,7 @@ export default function MiningPage() {
         remaining: tier.maxSlots,
         tierIndex: tier.tierIndex,
       })),
-    [tiersQuery.data],
+    [t, tiersQuery.data],
   );
 
   const purchasedMachines = useMemo(() => {
@@ -93,7 +96,7 @@ export default function MiningPage() {
       return {
         model: tier?.model || `T${position.tierIndex}`,
         quantity: 1,
-        cycleProgress: `${cycleCurrent} / ${cycleTotal} 天`,
+        cycleProgress: t("modules.mining.units.positionProgress", { current: cycleCurrent, total: cycleTotal }),
         output: `${formatTokenAmount(position.grossClaimed, 18, 4)} NETE`,
         pending: `${formatTokenAmount(position.pendingReward, 18, 4)} NETE`,
         profit: `${formatTokenAmount(position.profit, 18, 4)} NETE`,
@@ -104,7 +107,7 @@ export default function MiningPage() {
         cycleTotal,
       };
     });
-  }, [machineModels, miningDataQuery.data]);
+  }, [machineModels, miningDataQuery.data, t]);
 
   const airdropMachineStatus = useMemo(() => {
     const info = miningDataQuery.data?.airdropInfo;
@@ -115,9 +118,9 @@ export default function MiningPage() {
       permanent: Boolean(info?.promoted),
       validityLeftDays: info?.expireAt ? formatDaysByEpoch(Number(info.expireAt)) : 0,
       produced: related ? `${formatTokenAmount(related.grossClaimed, 18, 4)} NETE` : "0 NETE",
-      triggerGiftRule: "按合约规则达标后可转永久矿机",
+      triggerGiftRule: t("modules.mining.rules.giftRuleValue"),
     };
-  }, [miningDataQuery.data]);
+  }, [miningDataQuery.data, t]);
 
   const amountValue = Number(purchaseAmount);
   const isAmountValid = Number.isInteger(amountValue) && amountValue >= 1;
@@ -150,14 +153,14 @@ export default function MiningPage() {
       : 0;
 
     return [
-      { label: "持仓矿机", value: `${holdings} 台` },
-      { label: "链上仓位", value: `${holdings} 条` },
-      { label: "已产出收益", value: `${totalOutputValue.toLocaleString(undefined, { maximumFractionDigits: 4 })} NETE`, accent: true },
-      { label: "平均进度", value: `${avgProgress}%` },
-      { label: "平均剩余周期", value: `${avgRemaining} 天` },
-      { label: "空投矿机状态", value: airdropMachineStatus.permanent ? "已转永久" : "未转永久" },
+      { label: t("modules.mining.summary.holdings"), value: t("modules.mining.units.machines", { count: holdings }) },
+      { label: t("modules.mining.summary.positions"), value: t("modules.mining.units.positions", { count: holdings }) },
+      { label: t("modules.mining.summary.output"), value: `${totalOutputValue.toLocaleString(undefined, { maximumFractionDigits: 4 })} NETE`, accent: true },
+      { label: t("modules.mining.summary.avgProgress"), value: `${avgProgress}%` },
+      { label: t("modules.mining.summary.avgRemaining"), value: t("modules.mining.units.days", { count: avgRemaining }) },
+      { label: t("modules.mining.summary.airdrop"), value: airdropMachineStatus.permanent ? t("modules.mining.statuses.permanent") : t("modules.mining.statuses.notPermanent") },
     ];
-  }, [airdropMachineStatus.permanent, purchasedMachines]);
+  }, [airdropMachineStatus.permanent, purchasedMachines, t]);
 
   const planStats = useMemo(() => {
     const maxRate = machineModels.reduce((max, item) => Math.max(max, parsePercent(item.returnRate)), 0);
@@ -167,9 +170,23 @@ export default function MiningPage() {
     return {
       modelCount: machineModels.length,
       maxRate,
-      cycleRange: machineModels.length ? `${minDays} - ${maxDays} 天` : "--",
+      cycleRange: machineModels.length ? t("modules.mining.units.cycleRange", { min: minDays, max: maxDays }) : "--",
     };
-  }, [machineModels]);
+  }, [machineModels, t]);
+
+  const miningConfigMessage = useMemo(() => {
+    const missingKeys = getContractConfigMissingKeys(MINING_CONTRACT_KEYS);
+    if (!isContractConfigReady(MINING_CONTRACT_KEYS)) {
+      return t("modules.mining.buy.missingContracts", { keys: missingKeys.join(", ") });
+    }
+
+    if (tiersQuery.isError) {
+      const message = tiersQuery.error instanceof Error ? tiersQuery.error.message : "";
+      return t("modules.mining.buy.loadFailed", { message });
+    }
+
+    return t("modules.mining.buy.emptyDesc", { chain: NETE_CHAIN.name });
+  }, [t, tiersQuery.error, tiersQuery.isError]);
 
   const portfolioRows = useMemo(
     () =>
@@ -233,11 +250,11 @@ export default function MiningPage() {
         latestHash = tx.hash;
       }
 
-      setTxMessage(`申购成功，交易哈希：${latestHash}`);
+      setTxMessage(t("modules.mining.messages.purchaseSuccess", { hash: latestHash }));
       await queryClient.invalidateQueries({ queryKey: ["nete", "mining", wallet.currentAddress] });
       closePurchaseModal();
     } catch (error) {
-      const message = error instanceof Error ? error.message : "申购失败，请稍后重试";
+      const message = error instanceof Error ? error.message : t("modules.mining.messages.purchaseFailed");
       setTxMessage(message);
     } finally {
       setPurchasing(false);
@@ -252,10 +269,10 @@ export default function MiningPage() {
       setTxMessage("");
       await wallet.ensureCorrectChain();
       const tx = await claimReward(wallet.currentAddress, positionId);
-      setTxMessage(`领取成功，交易哈希：${tx.hash}`);
+      setTxMessage(t("modules.mining.messages.claimSuccess", { hash: tx.hash }));
       await queryClient.invalidateQueries({ queryKey: ["nete", "mining", wallet.currentAddress] });
     } catch (error) {
-      const message = error instanceof Error ? error.message : "领取失败，请稍后重试";
+      const message = error instanceof Error ? error.message : t("modules.mining.messages.claimFailed");
       setTxMessage(message);
     } finally {
       setClaimingId("");
@@ -270,10 +287,10 @@ export default function MiningPage() {
       setTxMessage("");
       await wallet.ensureCorrectChain();
       const tx = await withdrawProfit(wallet.currentAddress, positionId, amount);
-      setTxMessage(`提现成功，交易哈希：${tx.hash}`);
+      setTxMessage(t("modules.mining.messages.withdrawSuccess", { hash: tx.hash }));
       await queryClient.invalidateQueries({ queryKey: ["nete", "mining", wallet.currentAddress] });
     } catch (error) {
-      const message = error instanceof Error ? error.message : "提现失败，请稍后重试";
+      const message = error instanceof Error ? error.message : t("modules.mining.messages.withdrawFailed");
       setTxMessage(message);
     } finally {
       setWithdrawingId("");
@@ -282,7 +299,7 @@ export default function MiningPage() {
 
   return (
     <section className="mining-page">
-      <header className="mining-view-tabs" role="tablist" aria-label="矿机页面视图">
+      <header className="mining-view-tabs" role="tablist" aria-label={t("nav.mining")}>
         {MINING_VIEWS.map((tab) => (
           <button
             key={tab.key}
@@ -292,35 +309,35 @@ export default function MiningPage() {
             aria-selected={activeView === tab.key}
             onClick={() => setActiveView(tab.key)}
           >
-            {tab.label}
+            {t(tab.labelKey)}
           </button>
         ))}
       </header>
 
       {txMessage ? <p className="mt-3 text-xs text-white/75 break-all">{txMessage}</p> : null}
-      {wallet.isConnected ? null : <p className="mt-2 text-xs text-white/65">请先连接钱包后再进行矿机申购与收益领取。</p>}
+      {wallet.isConnected ? null : <p className="mt-2 text-xs text-white/65">{t("modules.mining.messages.connectFirst")}</p>}
 
       {activeView === "my-miners" ? (
         <div className="mining-view-panel">
           <div className="mining-hero mining-hero--portfolio">
             <div className="mining-hero__inner">
               <div className="mining-hero__main">
-                <p className="mining-eyebrow">MY MINERS</p>
-                <h1>我的矿机单独成页，先看持仓，再做操作</h1>
-                <p>链上读取当前地址矿机仓位，按周期进度与收益状态展示，并支持直接领取收益。</p>
+                <p className="mining-eyebrow">{t("modules.mining.portfolio.eyebrow")}</p>
+                <h1>{t("modules.mining.portfolio.title")}</h1>
+                <p>{t("modules.mining.portfolio.desc")}</p>
                 <div className="mining-hero__actions">
-                  <button type="button" className="mining-btn mining-btn--primary" onClick={() => setActiveView("buy-miners")}>去购买矿机</button>
-                  <button type="button" className="mining-btn mining-btn--ghost" onClick={openAgreementModal}>查看规则说明</button>
+                  <button type="button" className="mining-btn mining-btn--primary" onClick={() => setActiveView("buy-miners")}>{t("modules.mining.portfolio.buyButton")}</button>
+                  <button type="button" className="mining-btn mining-btn--ghost" onClick={openAgreementModal}>{t("modules.mining.portfolio.rulesButton")}</button>
                 </div>
               </div>
               <aside className="mining-side-card">
                 <p className="mining-eyebrow">ON-CHAIN</p>
-                <h2>地址状态</h2>
+                <h2>{t("modules.mining.portfolio.addressStatus")}</h2>
                 <div className="mining-side-grid">
-                  <div><span>钱包地址</span><strong>{wallet.shortAddress}</strong></div>
-                  <div><span>仓位数量</span><strong>{portfolioRows.length} 条</strong></div>
-                  <div><span>空投状态</span><strong>{airdropMachineStatus.synthesized ? "已合成" : "未合成"}</strong></div>
-                  <div><span>网络状态</span><strong>{wallet.isWrongChain ? "待切链" : "正常"}</strong></div>
+                  <div><span>{t("modules.mining.portfolio.walletAddress")}</span><strong>{wallet.shortAddress}</strong></div>
+                  <div><span>{t("modules.mining.portfolio.positionCount")}</span><strong>{t("modules.mining.units.positions", { count: portfolioRows.length })}</strong></div>
+                  <div><span>{t("modules.mining.portfolio.airdropStatus")}</span><strong>{airdropMachineStatus.synthesized ? t("modules.mining.statuses.synthesized") : t("modules.mining.statuses.notSynthesized")}</strong></div>
+                  <div><span>{t("modules.mining.portfolio.networkStatus")}</span><strong>{wallet.isWrongChain ? t("modules.mining.statuses.wrongChain") : t("modules.mining.statuses.normal")}</strong></div>
                 </div>
               </aside>
             </div>
@@ -329,8 +346,8 @@ export default function MiningPage() {
           <section className="mining-section">
             <div className="mining-section__head">
               <div>
-                <h3>Portfolio Overview</h3>
-                <p>顶部概览与下方持仓列表拆分展示，桌面和移动端都保持一致信息层级。</p>
+                <h3>{t("modules.mining.portfolio.overviewTitle")}</h3>
+                <p>{t("modules.mining.portfolio.overviewDesc")}</p>
               </div>
             </div>
             <div className="mining-summary-strip">
@@ -346,8 +363,8 @@ export default function MiningPage() {
           <section className="mining-section">
             <div className="mining-section__head">
               <div>
-                <h3>已购买矿机</h3>
-                <p>每条持仓记录展示进度、已产出、待领取和剩余周期。</p>
+                <h3>{t("modules.mining.portfolio.listTitle")}</h3>
+                <p>{t("modules.mining.portfolio.listDesc")}</p>
               </div>
             </div>
             <div className="mining-panel-card">
@@ -356,8 +373,8 @@ export default function MiningPage() {
                   <article className="mining-portfolio-item">
                     <div className="mining-portfolio-item__top">
                       <div>
-                        <div className="mining-portfolio-item__title"><h4>暂无持仓</h4></div>
-                        <div className="mining-portfolio-item__meta"><span>连接钱包并购买矿机后会显示在这里</span></div>
+                        <div className="mining-portfolio-item__title"><h4>{t("modules.mining.portfolio.emptyTitle")}</h4></div>
+                        <div className="mining-portfolio-item__meta"><span>{t("modules.mining.portfolio.emptyDesc")}</span></div>
                       </div>
                     </div>
                   </article>
@@ -371,12 +388,12 @@ export default function MiningPage() {
                             <span className="mining-chip">{machine.recordId}</span>
                           </div>
                           <div className="mining-portfolio-item__meta">
-                            <span>已产出 {machine.output}</span>
-                            <span>待领取 {machine.pending}</span>
-                            <span>可提利润 {machine.profit}</span>
+                            <span>{t("modules.mining.portfolio.produced")} {machine.output}</span>
+                            <span>{t("modules.mining.portfolio.pending")} {machine.pending}</span>
+                            <span>{t("modules.mining.portfolio.profit")} {machine.profit}</span>
                           </div>
                         </div>
-                        <span className="mining-chip mining-chip--status">运行中</span>
+                        <span className="mining-chip mining-chip--status">{t("modules.mining.statuses.running")}</span>
                       </div>
 
                       <div className="mining-progress">
@@ -387,15 +404,15 @@ export default function MiningPage() {
 
                       <div className="mining-portfolio-grid">
                         <div className="mining-info-tile">
-                          <span>周期进度</span>
-                          <strong>{machine.cycleCurrent} / {machine.cycleTotal} 天</strong>
+                          <span>{t("modules.mining.portfolio.cycleProgress")}</span>
+                          <strong>{t("modules.mining.units.positionProgress", { current: machine.cycleCurrent, total: machine.cycleTotal })}</strong>
                         </div>
                         <div className="mining-info-tile">
-                          <span>剩余周期</span>
-                          <strong>{machine.remainingDays} 天</strong>
+                          <span>{t("modules.mining.portfolio.remainingCycle")}</span>
+                          <strong>{t("modules.mining.units.days", { count: machine.remainingDays })}</strong>
                         </div>
                         <div className="mining-info-tile">
-                          <span>仓位 ID</span>
+                          <span>{t("modules.mining.portfolio.positionId")}</span>
                           <strong className="is-accent">#{machine.positionId}</strong>
                         </div>
                         <div className="mining-info-tile mining-info-tile--action">
@@ -405,7 +422,7 @@ export default function MiningPage() {
                             disabled={claimingId === machine.positionId || !wallet.isConnected || Boolean(withdrawingId)}
                             onClick={() => handleClaim(machine.positionId)}
                           >
-                            {claimingId === machine.positionId ? "领取中..." : "领取收益"}
+                            {claimingId === machine.positionId ? t("modules.mining.portfolio.claiming") : t("modules.mining.portfolio.claim")}
                           </button>
                         </div>
                         <div className="mining-info-tile mining-info-tile--action">
@@ -415,7 +432,7 @@ export default function MiningPage() {
                             disabled={withdrawingId === machine.positionId || !wallet.isConnected || machine.profitWei <= 0n || Boolean(claimingId)}
                             onClick={() => handleWithdraw(machine.positionId, machine.profitWei)}
                           >
-                            {withdrawingId === machine.positionId ? "提现中..." : "提现利润"}
+                            {withdrawingId === machine.positionId ? t("modules.mining.portfolio.withdrawing") : t("modules.mining.portfolio.withdraw")}
                           </button>
                         </div>
                       </div>
@@ -433,16 +450,16 @@ export default function MiningPage() {
           <div className="mining-hero mining-hero--buy">
             <div className="mining-hero__inner">
               <div className="mining-hero__main">
-                <p className="mining-eyebrow">BUY MINERS</p>
-                <h1>购买页单独展示，保留决策需要的信息</h1>
-                <p>链上实时读取 tierConfigs，展示价格、收益率、周期和手续费。</p>
+                <p className="mining-eyebrow">{t("modules.mining.buy.eyebrow")}</p>
+                <h1>{t("modules.mining.buy.title")}</h1>
+                <p>{t("modules.mining.buy.desc")}</p>
               </div>
 
               <div className="mining-stats-strip">
-                <article className="mining-stat-card"><span>矿机型号</span><strong>{planStats.modelCount} 款</strong></article>
-                <article className="mining-stat-card"><span>最高收益率</span><strong className="is-accent">{planStats.maxRate}%</strong></article>
-                <article className="mining-stat-card"><span>周期范围</span><strong>{planStats.cycleRange}</strong></article>
-                <article className="mining-stat-card"><span>交互动作</span><strong>申购矿机</strong></article>
+                <article className="mining-stat-card"><span>{t("modules.mining.buy.modelCount")}</span><strong>{planStats.modelCount}</strong></article>
+                <article className="mining-stat-card"><span>{t("modules.mining.buy.maxRate")}</span><strong className="is-accent">{planStats.maxRate}%</strong></article>
+                <article className="mining-stat-card"><span>{t("modules.mining.buy.cycleRange")}</span><strong>{planStats.cycleRange}</strong></article>
+                <article className="mining-stat-card"><span>{t("modules.mining.buy.action")}</span><strong>{t("modules.mining.buy.actionValue")}</strong></article>
               </div>
             </div>
           </div>
@@ -450,14 +467,21 @@ export default function MiningPage() {
           <section className="mining-section">
             <div className="mining-section__head">
               <div>
-                <h3>购买矿机列表</h3>
-                <p>桌面与移动端统一为列表式展示，保留周期和剩余可购，避免额外滚动条。</p>
+                <h3>{t("modules.mining.buy.listTitle")}</h3>
+                <p>{t("modules.mining.buy.listDesc")}</p>
               </div>
             </div>
             <div className="mining-panel-card">
               <div className="mining-plan-list">
-                {machineModels.length === 0 ? (
-                  <article className="mining-plan-item"><div><h4>暂无矿机配置</h4><p>请检查合约地址与链网络配置</p></div></article>
+                {tiersQuery.isLoading ? (
+                  <article className="mining-plan-item"><div><h4>{t("modules.mining.buy.loadingTitle")}</h4><p>{t("modules.mining.buy.loadingDesc", { chain: NETE_CHAIN.name })}</p></div></article>
+                ) : tiersQuery.isError || machineModels.length === 0 ? (
+                  <article className="mining-plan-item">
+                    <div>
+                      <h4>{tiersQuery.isError ? t("modules.mining.buy.loadFailedTitle") : t("modules.mining.buy.emptyTitle")}</h4>
+                      <p>{miningConfigMessage}</p>
+                    </div>
+                  </article>
                 ) : (
                   machineModels.map((model) => (
                     <article key={model.tierIndex} className="mining-plan-item">
@@ -467,10 +491,10 @@ export default function MiningPage() {
                       </div>
 
                       <div className="mining-plan-grid">
-                        <div className="mining-info-tile"><span>总收益率</span><strong className="is-accent">{model.returnRate}</strong></div>
-                        <div className="mining-info-tile"><span>单人限购</span><strong>{model.unitCount} 台</strong></div>
-                        <div className="mining-info-tile"><span>周期</span><strong>{model.periodDays} 天</strong></div>
-                        <div className="mining-info-tile"><span>提币手续费</span><strong>{model.withdrawFee}%</strong></div>
+                        <div className="mining-info-tile"><span>{t("modules.mining.buy.totalRate")}</span><strong className="is-accent">{model.returnRate}</strong></div>
+                        <div className="mining-info-tile"><span>{t("modules.mining.buy.unitLimit")}</span><strong>{t("modules.mining.units.machines", { count: model.unitCount })}</strong></div>
+                        <div className="mining-info-tile"><span>{t("modules.mining.buy.cycle")}</span><strong>{t("modules.mining.units.days", { count: model.periodDays })}</strong></div>
+                        <div className="mining-info-tile"><span>{t("modules.mining.buy.withdrawFee")}</span><strong>{model.withdrawFee}%</strong></div>
                       </div>
 
                       <div className="mining-plan-action">
@@ -480,7 +504,7 @@ export default function MiningPage() {
                           onClick={() => openPurchaseModal(model)}
                           disabled={!wallet.isConnected || repurchasePaused}
                         >
-                          申购矿机
+                          {t("modules.mining.buy.actionValue")}
                         </button>
                       </div>
                     </article>
@@ -497,19 +521,19 @@ export default function MiningPage() {
           <div className="mining-hero mining-hero--rules">
             <div className="mining-hero__inner">
               <div className="mining-hero__main">
-                <p className="mining-eyebrow">RULES</p>
-                <h1>矿机页按功能拆分，信息路径更干净</h1>
-                <p>持仓、申购、规则分视图承载，进入当前视图时只看当前任务，降低阅读压力。</p>
+                <p className="mining-eyebrow">{t("modules.mining.rules.eyebrow")}</p>
+                <h1>{t("modules.mining.rules.title")}</h1>
+                <p>{t("modules.mining.rules.desc")}</p>
                 <div className="mining-hero__actions">
-                  <button type="button" className="mining-btn mining-btn--primary" onClick={openAgreementModal}>查看完整协议</button>
+                  <button type="button" className="mining-btn mining-btn--primary" onClick={openAgreementModal}>{t("modules.mining.rules.fullProtocol")}</button>
                 </div>
               </div>
 
               <div className="mining-stats-strip">
-                <article className="mining-stat-card"><span>页面方式</span><strong>分视图</strong></article>
-                <article className="mining-stat-card"><span>持仓模式</span><strong>逐条记录</strong></article>
-                <article className="mining-stat-card"><span>购买列表</span><strong>链上配置</strong></article>
-                <article className="mining-stat-card"><span>周期字段</span><strong>保留展示</strong></article>
+                <article className="mining-stat-card"><span>{t("modules.mining.rules.viewMode")}</span><strong>{t("modules.mining.rules.splitView")}</strong></article>
+                <article className="mining-stat-card"><span>{t("modules.mining.rules.positionMode")}</span><strong>{t("modules.mining.rules.rowRecords")}</strong></article>
+                <article className="mining-stat-card"><span>{t("modules.mining.rules.buyList")}</span><strong>{t("modules.mining.rules.onchainConfig")}</strong></article>
+                <article className="mining-stat-card"><span>{t("modules.mining.rules.cycleField")}</span><strong>{t("modules.mining.rules.keepVisible")}</strong></article>
               </div>
             </div>
           </div>
@@ -517,27 +541,27 @@ export default function MiningPage() {
           <section className="mining-section">
             <div className="mining-section__head">
               <div>
-                <h3>规则说明</h3>
-                <p>保留给产品机制与执行说明，后续可继续扩展合约细则与风控策略。</p>
+                <h3>{t("modules.mining.rules.titleShort")}</h3>
+                <p>{t("modules.mining.rules.descShort")}</p>
               </div>
             </div>
 
             <div className="mining-rules-grid">
               <article className="mining-rule-card">
                 <span className="mining-rule-card__index">01</span>
-                <h4>空投矿机状态</h4>
-                <p>是否已合成：{airdropMachineStatus.synthesized ? "已合成" : "未合成"}</p>
-                <p>永久矿机状态：{airdropMachineStatus.permanent ? "已转永久" : "未转永久"}</p>
-                <p>有效期剩余：{airdropMachineStatus.validityLeftDays} 天</p>
-                <p>已产出收益：{airdropMachineStatus.produced}</p>
-                <p>买一赠一规则：{airdropMachineStatus.triggerGiftRule}</p>
+                <h4>{t("modules.mining.rules.airdropTitle")}</h4>
+                <p>{t("modules.mining.rules.synthesized")}：{airdropMachineStatus.synthesized ? t("modules.mining.statuses.synthesized") : t("modules.mining.statuses.notSynthesized")}</p>
+                <p>{t("modules.mining.rules.permanent")}：{airdropMachineStatus.permanent ? t("modules.mining.statuses.permanent") : t("modules.mining.statuses.notPermanent")}</p>
+                <p>{t("modules.mining.rules.validityLeft")}：{t("modules.mining.units.days", { count: airdropMachineStatus.validityLeftDays })}</p>
+                <p>{t("modules.mining.rules.produced")}：{airdropMachineStatus.produced}</p>
+                <p>{t("modules.mining.rules.giftRule")}：{airdropMachineStatus.triggerGiftRule}</p>
               </article>
 
               <article className="mining-rule-card">
                 <span className="mining-rule-card__index">02</span>
-                <h4>产出与钱包规则</h4>
+                <h4>{t("modules.mining.rules.outputWalletTitle")}</h4>
                 <ul>
-                  {miningWalletRules.map((item) => (
+                  {t("modules.mining.rules.outputWalletRules", { returnObjects: true }).map((item) => (
                     <li key={item}>{item}</li>
                   ))}
                 </ul>
@@ -545,14 +569,14 @@ export default function MiningPage() {
 
               <article className="mining-rule-card">
                 <span className="mining-rule-card__index">03</span>
-                <h4>减产与手续费分配</h4>
+                <h4>{t("modules.mining.rules.reductionTitle")}</h4>
                 <ul>
-                  {reductionRules.map((item) => (
+                  {t("modules.mining.rules.reductionRules", { returnObjects: true }).map((item) => (
                     <li key={item}>{item}</li>
                   ))}
                 </ul>
                 <ul>
-                  {withdrawFeeDistributionRules.map((row) => (
+                  {t("modules.mining.rules.feeRules", { returnObjects: true }).map((row) => (
                     <li key={row.item}>{row.item}：{row.ratio}（{row.use}）</li>
                   ))}
                 </ul>
@@ -568,21 +592,21 @@ export default function MiningPage() {
             className="mobile-drawer-enter max-h-[70dvh] w-full max-w-[760px] overflow-y-auto rounded-t-[20px] rounded-b-none border border-white/10 bg-[#141419] p-4 text-white shadow-[0_25px_80px_rgba(0,0,0,0.55)] md:max-h-[92vh] md:rounded-[24px] md:p-5"
             role="dialog"
             aria-modal="true"
-            aria-label={`${selectedModel.model} 申购`}
+            aria-label={`${selectedModel.model} ${t("modules.mining.modal.subscribe")}`}
             onClick={(event) => event.stopPropagation()}
           >
             <div className="flex items-start justify-between gap-2">
               <div className="flex items-center gap-2">
                 <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-[#ff9900] text-base font-bold text-white">B</span>
-                <h3 className="font-display text-lg font-bold tracking-tight text-white md:text-xl">{selectedModel.model} 申购</h3>
+                <h3 className="font-display text-lg font-bold tracking-tight text-white md:text-xl">{selectedModel.model} {t("modules.mining.modal.subscribe")}</h3>
               </div>
-              <button className="inline-flex h-7 w-7 items-center justify-center rounded-full text-xl leading-none text-white/70 transition hover:bg-white/10 hover:text-white" type="button" onClick={closePurchaseModal} aria-label="关闭">
+              <button className="inline-flex h-7 w-7 items-center justify-center rounded-full text-xl leading-none text-white/70 transition hover:bg-white/10 hover:text-white" type="button" onClick={closePurchaseModal} aria-label={t("modules.mining.modal.close")}>
                 <Icon icon="solar:close-circle-outline" width="1em" height="1em" />
               </button>
             </div>
 
             <div className="mt-4">
-              <label className="text-sm font-semibold text-white/90">矿机型号</label>
+              <label className="text-sm font-semibold text-white/90">{t("modules.mining.modal.model")}</label>
               <div className="relative mt-2">
                 <button
                   className="flex h-11 w-full items-center justify-between rounded-xl border border-white/20 bg-black/35 px-3 text-left text-sm font-semibold text-white transition hover:border-white/35"
@@ -599,7 +623,7 @@ export default function MiningPage() {
 
                 {modelPickerOpen ? (
                   <div className="absolute z-20 mt-2 w-full overflow-hidden rounded-xl border border-white/15 bg-[#1a1a22] shadow-[0_16px_50px_rgba(0,0,0,0.55)]">
-                    <div className="max-h-56 overflow-y-auto py-1.5" role="listbox" aria-label="矿机型号选择">
+                    <div className="max-h-56 overflow-y-auto py-1.5" role="listbox" aria-label={t("modules.mining.modal.picker")}>
                       {machineModels.map((model) => {
                         const active = selectedModel.tierIndex === model.tierIndex;
                         return (
@@ -632,13 +656,13 @@ export default function MiningPage() {
             </div>
 
             <div className="mt-4">
-              <div className="text-base font-semibold text-white/90">参考总收益率</div>
-              <div className="mt-1.5 inline-flex items-center rounded-md border border-white/15 bg-white/5 px-2 py-0.5 text-xs font-semibold text-white/85">链上规则</div>
+              <div className="text-base font-semibold text-white/90">{t("modules.mining.modal.referenceRate")}</div>
+              <div className="mt-1.5 inline-flex items-center rounded-md border border-white/15 bg-white/5 px-2 py-0.5 text-xs font-semibold text-white/85">{t("modules.mining.modal.onchainRules")}</div>
               <p className="mt-1.5 font-display text-2xl font-black text-[#caff00]">{selectedModel.returnRate}</p>
             </div>
 
             <div className="mt-5">
-              <label className="text-sm font-semibold text-white/90" htmlFor="mining-purchase-input">申购数量</label>
+              <label className="text-sm font-semibold text-white/90" htmlFor="mining-purchase-input">{t("modules.mining.modal.quantity")}</label>
               <div className="mt-2 flex h-12 items-center gap-2 rounded-full border border-white/20 bg-black/30 px-4">
                 <input
                   id="mining-purchase-input"
@@ -648,21 +672,21 @@ export default function MiningPage() {
                   step="1"
                   value={purchaseAmount}
                   onChange={(event) => setPurchaseAmount(event.target.value)}
-                  placeholder="最小 1"
+                  placeholder={t("modules.mining.modal.minPlaceholder")}
                 />
-                <span className="shrink-0 text-sm font-semibold text-white/65">台</span>
+                <span className="shrink-0 text-sm font-semibold text-white/65">{t("modules.mining.modal.unit")}</span>
               </div>
             </div>
 
             <section className="mt-6">
-              <h4 className="text-2xl font-black leading-none text-white">收益计算</h4>
+              <h4 className="text-2xl font-black leading-none text-white">{t("modules.mining.modal.calculator")}</h4>
               <div className="mt-3 grid gap-2 rounded-2xl border border-white/10 bg-white/[0.02] p-3 text-xs md:grid-cols-2 md:text-sm">
                 <div>
-                  <p className="text-white/55">预计总投入</p>
+                  <p className="text-white/55">{t("modules.mining.modal.estimatedCost")}</p>
                   <p className="mt-1 text-base font-semibold text-white">{isAmountValid ? `${projectedCost.toLocaleString()} NETE` : "--"}</p>
                 </div>
                 <div>
-                  <p className="text-white/55">预计总产出</p>
+                  <p className="text-white/55">{t("modules.mining.modal.estimatedOutput")}</p>
                   <p className="mt-1 text-base font-semibold text-[#caff00]">{isAmountValid ? `${projectedOutput.toLocaleString(undefined, { maximumFractionDigits: 2 })} NETE` : "--"}</p>
                 </div>
               </div>
@@ -670,18 +694,18 @@ export default function MiningPage() {
 
             <div className="mt-5 space-y-3">
               <div className="grid gap-2 rounded-2xl border border-white/10 bg-white/[0.02] p-3 text-xs text-white/75 sm:grid-cols-2 md:text-sm">
-                <p>延长：{selectedModel.extendDays} 天</p>
-                <p>最长周期：{selectedModel.maxPeriodDays} 天</p>
-                <p>提币手续费：{selectedModel.withdrawFee}%</p>
-                <p>单台周期：{selectedModel.periodDays} 天</p>
+                <p>{t("modules.mining.modal.extend")}：{t("modules.mining.units.days", { count: selectedModel.extendDays })}</p>
+                <p>{t("modules.mining.modal.maxCycle")}：{t("modules.mining.units.days", { count: selectedModel.maxPeriodDays })}</p>
+                <p>{t("modules.mining.modal.withdrawFee")}：{selectedModel.withdrawFee}%</p>
+                <p>{t("modules.mining.modal.singleCycle")}：{t("modules.mining.units.days", { count: selectedModel.periodDays })}</p>
               </div>
 
               <label className="flex items-start gap-2 text-xs text-white/70 md:text-sm">
                 <input className="mt-0.5 h-4 w-4 rounded border border-white/30 bg-transparent accent-[#caff00]" type="checkbox" checked={acceptedAgreement} onChange={(event) => setAcceptedAgreement(event.target.checked)} />
                 <span>
-                  我已阅读并同意
+                  {t("modules.mining.modal.agreementPrefix")}
                   <button className="ml-1 font-semibold text-[#caff00] underline decoration-dotted underline-offset-4" type="button" onClick={openAgreementFromPurchase}>
-                    NETE 矿机申购协议
+                    {t("modules.mining.modal.agreement")}
                   </button>
                 </span>
               </label>
@@ -693,9 +717,9 @@ export default function MiningPage() {
               disabled={!canSubmitPurchase}
               onClick={handlePurchase}
             >
-              {purchasing ? "提交中..." : "申购"}
+              {purchasing ? t("modules.mining.modal.submitting") : t("modules.mining.modal.submit")}
             </button>
-            {repurchasePaused ? <p className="mt-2 text-center text-xs text-white/65">系统当前暂停复投/申购，请稍后再试。</p> : null}
+            {repurchasePaused ? <p className="mt-2 text-center text-xs text-white/65">{t("modules.mining.messages.paused")}</p> : null}
           </article>
         </div>
       ) : null}
@@ -706,42 +730,42 @@ export default function MiningPage() {
             className="mobile-drawer-enter max-h-[70dvh] w-full max-w-[1200px] overflow-y-auto rounded-t-[20px] rounded-b-none border border-white/10 bg-[#141419] p-4 text-white shadow-[0_25px_80px_rgba(0,0,0,0.55)] md:max-h-[92vh] md:rounded-[24px] md:p-7"
             role="dialog"
             aria-modal="true"
-            aria-label="NETE 矿机申购协议"
+            aria-label={t("modules.mining.modal.agreementTitle")}
             onClick={(event) => event.stopPropagation()}
           >
             <div className="flex items-center justify-between gap-3 border-b border-white/10 pb-4">
-              <h3 className="font-display text-lg font-bold tracking-tight text-white md:text-xl">NETE 矿机申购协议</h3>
-              <button className="inline-flex h-8 w-8 items-center justify-center rounded-full text-2xl leading-none text-white/70 transition hover:bg-white/10 hover:text-white" type="button" onClick={closeAgreementModal} aria-label="关闭">
+              <h3 className="font-display text-lg font-bold tracking-tight text-white md:text-xl">{t("modules.mining.modal.agreementTitle")}</h3>
+              <button className="inline-flex h-8 w-8 items-center justify-center rounded-full text-2xl leading-none text-white/70 transition hover:bg-white/10 hover:text-white" type="button" onClick={closeAgreementModal} aria-label={t("modules.mining.modal.close")}>
                 <Icon icon="solar:close-circle-outline" width="1em" height="1em" />
               </button>
             </div>
 
             <div className="mt-5 space-y-6 text-xs leading-relaxed text-white/85 md:text-sm">
               <section className="space-y-4">
-                <h4 className="text-2xl font-bold text-white md:text-2xl"><span className="text-[#caff00]">1.</span> 空投矿机状态说明</h4>
+                <h4 className="text-2xl font-bold text-white md:text-2xl"><span className="text-[#caff00]">1.</span> {t("modules.mining.rules.airdropTitle")}</h4>
                 <div className="space-y-1">
-                  <p>是否已合成：{airdropMachineStatus.synthesized ? "已合成" : "未合成"}</p>
-                  <p>永久矿机状态：{airdropMachineStatus.permanent ? "已转永久" : "未转永久"}</p>
-                  <p>有效期剩余：{airdropMachineStatus.validityLeftDays} 天</p>
-                  <p>已产出收益：{airdropMachineStatus.produced}</p>
-                  <p>买一赠一规则：{airdropMachineStatus.triggerGiftRule}</p>
+                  <p>{t("modules.mining.rules.synthesized")}：{airdropMachineStatus.synthesized ? t("modules.mining.statuses.synthesized") : t("modules.mining.statuses.notSynthesized")}</p>
+                  <p>{t("modules.mining.rules.permanent")}：{airdropMachineStatus.permanent ? t("modules.mining.statuses.permanent") : t("modules.mining.statuses.notPermanent")}</p>
+                  <p>{t("modules.mining.rules.validityLeft")}：{t("modules.mining.units.days", { count: airdropMachineStatus.validityLeftDays })}</p>
+                  <p>{t("modules.mining.rules.produced")}：{airdropMachineStatus.produced}</p>
+                  <p>{t("modules.mining.rules.giftRule")}：{airdropMachineStatus.triggerGiftRule}</p>
                 </div>
               </section>
 
               <section className="space-y-4">
-                <h4 className="text-xl font-bold text-white md:text-2xl"><span className="text-[#caff00]">2.</span> 产出与钱包规则</h4>
-                <div className="space-y-1">{miningWalletRules.map((item) => <p key={item}>{item}</p>)}</div>
+                <h4 className="text-xl font-bold text-white md:text-2xl"><span className="text-[#caff00]">2.</span> {t("modules.mining.rules.outputWalletTitle")}</h4>
+                <div className="space-y-1">{t("modules.mining.rules.outputWalletRules", { returnObjects: true }).map((item) => <p key={item}>{item}</p>)}</div>
               </section>
 
               <section className="space-y-4">
-                <h4 className="text-xl font-bold text-white md:text-2xl"><span className="text-[#caff00]">3.</span> 减产机制（时间调节阀）</h4>
-                <div className="space-y-1">{reductionRules.map((item) => <p key={item}>{item}</p>)}</div>
+                <h4 className="text-xl font-bold text-white md:text-2xl"><span className="text-[#caff00]">3.</span> {t("modules.mining.modal.reductionTitle")}</h4>
+                <div className="space-y-1">{t("modules.mining.rules.reductionRules", { returnObjects: true }).map((item) => <p key={item}>{item}</p>)}</div>
               </section>
 
               <section className="space-y-4">
-                <h4 className="text-xl font-bold text-white md:text-2xl"><span className="text-[#caff00]">4.</span> 提币手续费分配机制（100% 分配）</h4>
+                <h4 className="text-xl font-bold text-white md:text-2xl"><span className="text-[#caff00]">4.</span> {t("modules.mining.modal.feeTitle")}</h4>
                 <div className="space-y-1">
-                  {withdrawFeeDistributionRules.map((row) => (
+                  {t("modules.mining.rules.feeRules", { returnObjects: true }).map((row) => (
                     <p key={row.item}>{row.item}：{row.ratio}，{row.use}</p>
                   ))}
                 </div>

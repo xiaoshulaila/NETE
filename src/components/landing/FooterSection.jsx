@@ -1,8 +1,11 @@
 import { Icon } from "@iconify/react";
 import { NavLink } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import logoIcon from "../../assets/images/logo-icon.svg";
 
 export default function FooterSection() {
+  const { t } = useTranslation();
+
   return (
     <footer className="footer" role="contentinfo" aria-label="Site footer">
       <div className="container">
@@ -14,20 +17,20 @@ export default function FooterSection() {
               </span>
               NETE
             </NavLink>
-            <p>透明、可持续、社区共治的链上时间价值生态。</p>
+            <p>{t("footer.tagline")}</p>
           </div>
 
           <nav aria-label="Product links">
-            <div className="footer__links-title">Product</div>
+            <div className="footer__links-title">{t("footer.product")}</div>
             <ul className="footer__links-list" role="list">
               <li>
                 <NavLink className="footer__link" to="/mining">
-                  矿机
+                  {t("footer.mining")}
                 </NavLink>
               </li>
               <li>
                 <NavLink className="footer__link" to="/c2c/market">
-                  C2C 市场
+                  {t("footer.c2cMarket")}
                 </NavLink>
               </li>
               <li>
@@ -37,23 +40,23 @@ export default function FooterSection() {
               </li>
               <li>
                 <NavLink className="footer__link" to="/">
-                  项目介绍
+                  {t("footer.project")}
                 </NavLink>
               </li>
             </ul>
           </nav>
 
           <nav aria-label="Developer links">
-            <div className="footer__links-title">Developers</div>
+            <div className="footer__links-title">{t("footer.developers")}</div>
             <ul className="footer__links-list" role="list">
               <li>
                 <NavLink className="footer__link" to="/my">
-                  我的面板
+                  {t("footer.myPanel")}
                 </NavLink>
               </li>
               <li>
                 <NavLink className="footer__link" to="/account/team">
-                  团队中心
+                  {t("footer.teamCenter")}
                 </NavLink>
               </li>
               <li>
@@ -70,16 +73,16 @@ export default function FooterSection() {
           </nav>
 
           <nav aria-label="Company links">
-            <div className="footer__links-title">Company</div>
+            <div className="footer__links-title">{t("footer.company")}</div>
             <ul className="footer__links-list" role="list">
               <li>
                 <NavLink className="footer__link" to="/">
-                  首页
+                  {t("footer.home")}
                 </NavLink>
               </li>
               <li>
                 <NavLink className="footer__link" to="/mining">
-                  矿机
+                  {t("footer.mining")}
                 </NavLink>
               </li>
               <li>
@@ -89,7 +92,7 @@ export default function FooterSection() {
               </li>
               <li>
                 <NavLink className="footer__link" to="/account/team">
-                  团队
+                  {t("footer.team")}
                 </NavLink>
               </li>
             </ul>
@@ -99,14 +102,14 @@ export default function FooterSection() {
 
         <div className="footer__bottom">
           <span>© 2024 NETE. All rights reserved.</span>
-          <span>Built with ♥ on Ethereum</span>
+          <span>{t("footer.built")}</span>
           <nav aria-label="Legal">
             <NavLink className="footer__link footer__link--inline" to="/">
-              Privacy
+              {t("footer.privacy")}
             </NavLink>
             &nbsp;·&nbsp;
             <NavLink className="footer__link footer__link--inline" to="/">
-              Terms
+              {t("footer.terms")}
             </NavLink>
           </nav>
         </div>

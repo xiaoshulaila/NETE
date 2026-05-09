@@ -1,5 +1,6 @@
 import { Icon } from "@iconify/react";
 import { NavLink } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import GlobalHeader from "../common/GlobalHeader";
 import FooterSection from "../landing/FooterSection";
 
@@ -12,6 +13,8 @@ function ZoneNavLink({ to, label, active }) {
 }
 
 export default function C2CPageFrame({ zone, children }) {
+  const { t } = useTranslation();
+
   return (
     <div className="c2c-page">
       <GlobalHeader />
@@ -19,16 +22,14 @@ export default function C2CPageFrame({ zone, children }) {
       <header className="c2c-topbar">
         <div className="c2c-topbar-inner">
           <div className="c2c-zones" role="tablist" aria-label="C2C zones">
-            <ZoneNavLink to="/c2c" label="快捷区" active={zone === "quick"} />
-            <ZoneNavLink to="/c2c/market" label="自选区" active={zone === "self"} />
-            <span className="c2c-zone-link c2c-zone-link-muted">VIP 尊享区</span>
+            <ZoneNavLink to="/c2c/market" label={t("c2cFrame.self")} active={zone === "self"} />
           </div>
 
           <div className="c2c-header-actions desktop-only">
-            <span className="c2c-header-action">订单</span>
-            <span className="c2c-header-action">个人中心</span>
+            <span className="c2c-header-action">{t("c2cFrame.orders")}</span>
+            <span className="c2c-header-action">{t("c2cFrame.profile")}</span>
             <span className="c2c-header-action c2c-more-action">
-              更多
+              {t("c2cFrame.more")}
               <i aria-hidden="true" className="c2c-red-dot"></i>
             </span>
             <span className="c2c-search-icon" aria-hidden="true">

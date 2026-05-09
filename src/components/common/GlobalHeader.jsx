@@ -5,13 +5,13 @@ import logoIcon from "../../assets/images/logo-icon.svg";
 import { useWalletConnector } from "../../hooks/useWalletConnector";
 
 const navItems = [
-  { label: { zh: "首页", en: "Home" }, to: "/" },
-  { label: { zh: "矿机", en: "Mining" }, to: "/mining" },
-  { label: { zh: "VIP", en: "VIP" }, to: "/vip" },
-  { label: { zh: "C2C", en: "C2C" }, to: "/c2c" },
-  { label: { zh: "种子 NETE", en: "Seed NETE" }, to: "/finance/buy-seed" },
-  { label: { zh: "团队", en: "Team" }, to: "/account/team" },
-  { label: { zh: "我的", en: "My" }, to: "/my" },
+  { key: "home", to: "/" },
+  { key: "mining", to: "/mining" },
+  { key: "vip", to: "/vip" },
+  { key: "c2c", to: "/c2c" },
+  { key: "seed", to: "/finance/buy-seed" },
+  { key: "team", to: "/account/team" },
+  { key: "my", to: "/my" },
 ];
 
 function desktopNavClassName(isActive) {
@@ -27,7 +27,7 @@ function normalizeLanguage(language) {
 }
 
 export default function GlobalHeader() {
-  const { i18n } = useTranslation();
+  const { i18n, t } = useTranslation();
   const location = useLocation();
   const wallet = useWalletConnector();
   const [menuOpen, setMenuOpen] = useState(false);
@@ -35,12 +35,12 @@ export default function GlobalHeader() {
   const [languageMenuOpen, setLanguageMenuOpen] = useState(false);
   const languageMenuRef = useRef(null);
   const currentLanguage = normalizeLanguage(i18n.resolvedLanguage || i18n.language);
-  const connectLabel = currentLanguage === "zh" ? "连接钱包" : "Connect Wallet";
-  const disconnectLabel = currentLanguage === "zh" ? "断开连接" : "Disconnect";
-  const switchChainLabel = currentLanguage === "zh" ? "切换到目标链" : "Switch Chain";
+  const connectLabel = t("nav.wallet.connect");
+  const disconnectLabel = t("nav.wallet.disconnect");
+  const switchChainLabel = t("nav.wallet.switchChain");
 
   const walletLabel = wallet.isConnecting || wallet.isSwitching
-    ? (currentLanguage === "zh" ? "处理中..." : "Processing...")
+    ? t("nav.wallet.processing")
     : wallet.isConnected
       ? wallet.shortAddress
       : connectLabel;
@@ -128,7 +128,7 @@ export default function GlobalHeader() {
               {navItems.map((item) => (
                 <li key={item.to}>
                   <NavLink to={item.to} className={({ isActive }) => desktopNavClassName(isActive)} end={item.to === "/"}>
-                    {item.label[currentLanguage]}
+                    {t(`nav.${item.key}`)}
                   </NavLink>
                 </li>
               ))}
@@ -160,7 +160,7 @@ export default function GlobalHeader() {
               <div className="nav__lang" ref={languageMenuRef}>
                 <button
                   className={languageMenuOpen ? "nav__lang-trigger is-open" : "nav__lang-trigger"}
-                  aria-label={currentLanguage === "zh" ? "切换语言" : "Switch language"}
+                  aria-label={t("common.language")}
                   aria-expanded={languageMenuOpen}
                   aria-controls="header-language-menu"
                   aria-haspopup="menu"
@@ -182,14 +182,14 @@ export default function GlobalHeader() {
                     onClick={() => switchLanguage("zh")}
                     role="menuitem"
                   >
-                    简体中文
+                    {t("common.chinese")}
                   </button>
                   <button
                     className={currentLanguage === "en" ? "nav__lang-option is-active" : "nav__lang-option"}
                     onClick={() => switchLanguage("en")}
                     role="menuitem"
                   >
-                    English
+                    {t("common.english")}
                   </button>
                 </div>
               </div>
@@ -220,7 +220,7 @@ export default function GlobalHeader() {
           {navItems.map((item) => (
             <li key={`mobile-${item.to}`}>
               <NavLink to={item.to} className={({ isActive }) => mobileNavClassName(isActive)} end={item.to === "/"} onClick={() => setMenuOpen(false)}>
-                {item.label[currentLanguage]}
+                {t(`nav.${item.key}`)}
               </NavLink>
             </li>
           ))}

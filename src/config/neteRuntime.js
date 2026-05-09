@@ -7,6 +7,9 @@ const SUPPORTED_CHAINS = {
 
 function normalizeBasePath(path) {
   if (!path) return "/nete";
+  if (path.startsWith("http://") || path.startsWith("https://")) {
+    return path.endsWith("/") ? path.slice(0, -1) : path;
+  }
   const withLeading = path.startsWith("/") ? path : `/${path}`;
   return withLeading.endsWith("/") ? withLeading.slice(0, -1) : withLeading;
 }
@@ -52,12 +55,12 @@ export function assertContractAddress(name) {
   return address;
 }
 
-export function isContractConfigReady() {
-  return Object.values(NETE_CONTRACTS).every(Boolean);
+export function isContractConfigReady(names = Object.keys(NETE_CONTRACTS)) {
+  return names.every((name) => Boolean(NETE_CONTRACTS[name]));
 }
 
-export function getContractConfigMissingKeys() {
-  return Object.entries(NETE_CONTRACTS)
-    .filter(([, value]) => !value)
-    .map(([key]) => key);
+export function getContractConfigMissingKeys(names = Object.keys(NETE_CONTRACTS)) {
+  return names
+    .filter((name) => !NETE_CONTRACTS[name])
+    .map((name) => CONTRACT_ENV_KEYS[name] || name);
 }

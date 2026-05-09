@@ -27,6 +27,12 @@ function ratioToPercentText(bps) {
   return `${(Number(bps || 0n) / 100).toFixed(2)}%`;
 }
 
+function isTierConfigScanBoundaryError(error) {
+  const message = error instanceof Error ? error.message.toLowerCase() : String(error || "").toLowerCase();
+  if (!message.includes("revert")) return false;
+  return message.includes("tierconfigs") || message.includes("function: tierconfigs");
+}
+
 function formatOrderStatus(statusValue) {
   const status = Number(statusValue);
   if (status === 0) return "Open";
@@ -123,7 +129,14 @@ export async function readTierConfigs(maxScan = 20) {
   const tiers = [];
 
   for (let index = 0; index < maxScan; index += 1) {
-    const raw = await read({ address: coreAddress, abi: neteCoreAbi, functionName: "tierConfigs", args: [BigInt(index)] });
+    let raw;
+    try {
+      raw = await read({ address: coreAddress, abi: neteCoreAbi, functionName: "tierConfigs", args: [BigInt(index)] });
+    } catch (error) {
+      if (index > 0 && isTierConfigScanBoundaryError(error)) break;
+      throw error;
+    }
+
     if (!raw || toBigInt(raw.principal) === 0n) continue;
 
     tiers.push({

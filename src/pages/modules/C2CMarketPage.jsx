@@ -2,6 +2,7 @@ import { Icon } from "@iconify/react";
 import { useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSearchParams } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { formatUnits } from "viem";
 import C2CPageFrame from "../../components/c2c/C2CPageFrame";
 import { useWalletConnector } from "../../hooks/useWalletConnector";
@@ -11,8 +12,8 @@ import { formatTokenAmount, parseTokenInput, shortAddress } from "../../utils/fo
 import "../styles/c2c.css";
 
 const marketTabs = [
-  { key: "market", label: "订单列表" },
-  { key: "mine", label: "我的订单" },
+  { key: "market", labelKey: "modules.c2cMarket.tabs.market" },
+  { key: "mine", labelKey: "modules.c2cMarket.tabs.mine" },
 ];
 
 const ONE_18 = 10n ** 18n;
@@ -39,12 +40,12 @@ function toBigIntSafe(value) {
   }
 }
 
-function formatDateTime(seconds) {
+function formatDateTime(seconds, locale = "zh-CN") {
   const value = Number(seconds || 0);
   if (!value) return "--";
   const date = new Date(value * 1000);
   if (Number.isNaN(date.getTime())) return "--";
-  return date.toLocaleString("zh-CN", { hour12: false });
+  return date.toLocaleString(locale, { hour12: false });
 }
 
 function formatUnitPrice(value) {
@@ -94,11 +95,13 @@ function toLower(value) {
 }
 
 export default function C2CMarketPage() {
+  const { i18n, t } = useTranslation();
   const wallet = useWalletConnector();
   const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
   const view = searchParams.get("view");
   const activeView = view === "mine" ? "mine" : "market";
+  const locale = i18n.resolvedLanguage?.toLowerCase().startsWith("en") ? "en-US" : "zh-CN";
 
   const [searchInput, setSearchInput] = useState("");
   const [searchKeyword, setSearchKeyword] = useState("");
@@ -192,20 +195,22 @@ export default function C2CMarketPage() {
       .filter((item) => !isOrderOpen(item.status))
       .map((item) => ({
         ...item,
-        type: "出售",
+        typeKey: "sell",
+        type: t("modules.c2cMarket.type.sell"),
         completedAt: item.filledAt || item.createdAt,
       }));
 
     const buyHistory = myTakenOrders.map((item) => ({
       ...item,
-      type: "购买",
+      typeKey: "buy",
+      type: t("modules.c2cMarket.type.buy"),
       completedAt: item.filledAt || item.createdAt,
     }));
 
     return [...buyHistory, ...sellHistory]
       .sort((a, b) => Number(b.completedAt || 0) - Number(a.completedAt || 0))
       .slice(0, 80);
-  }, [mySellOrders, myTakenOrders]);
+  }, [mySellOrders, myTakenOrders, t]);
 
   useEffect(() => {
     if (!toastMessage) return undefined;
@@ -235,12 +240,12 @@ export default function C2CMarketPage() {
 
   const handlePurchase = async (order) => {
     if (!wallet.isConnected) {
-      setToastMessage("请先连接钱包");
+      setToastMessage(t("modules.c2cMarket.messages.connectWallet"));
       return;
     }
     if (!order?.orderId) return;
     if (toLower(order.seller) === toLower(wallet.currentAddress)) {
-      setToastMessage("这是你自己的挂单，请到“我的订单”里管理。");
+      setToastMessage(t("modules.c2cMarket.messages.ownOrder"));
       return;
     }
 
@@ -250,10 +255,10 @@ export default function C2CMarketPage() {
       await approveUsdtToMarket(wallet.currentAddress, order.totalUsdt);
       const tx = await fillOrder(wallet.currentAddress, order.orderId);
       await refreshOrders();
-      setToastMessage(`购买成功，交易哈希：${tx.hash}`);
+      setToastMessage(t("modules.c2cMarket.messages.buySuccess", { hash: tx.hash }));
       switchTab("mine");
     } catch (error) {
-      const message = error instanceof Error ? error.message : "购买失败，请稍后重试";
+      const message = error instanceof Error ? error.message : t("modules.c2cMarket.messages.buyFailed");
       setToastMessage(message);
     } finally {
       setActionKey("");
@@ -262,7 +267,7 @@ export default function C2CMarketPage() {
 
   const handleCancelOrder = async (order) => {
     if (!wallet.isConnected || !order?.orderId) {
-      setToastMessage("请先连接钱包");
+      setToastMessage(t("modules.c2cMarket.messages.connectWallet"));
       return;
     }
 
@@ -271,9 +276,9 @@ export default function C2CMarketPage() {
       await wallet.ensureCorrectChain();
       const tx = await cancelSellOrder(wallet.currentAddress, order.orderId);
       await refreshOrders();
-      setToastMessage(`取消成功，交易哈希：${tx.hash}`);
+      setToastMessage(t("modules.c2cMarket.messages.cancelSuccess", { hash: tx.hash }));
     } catch (error) {
-      const message = error instanceof Error ? error.message : "取消失败，请稍后重试";
+      const message = error instanceof Error ? error.message : t("modules.c2cMarket.messages.cancelFailed");
       setToastMessage(message);
     } finally {
       setActionKey("");
@@ -284,7 +289,7 @@ export default function C2CMarketPage() {
     event.preventDefault();
 
     if (!wallet.isConnected) {
-      setToastMessage("请先连接钱包");
+      setToastMessage(t("modules.c2cMarket.messages.connectWallet"));
       return;
     }
 
@@ -295,25 +300,25 @@ export default function C2CMarketPage() {
       neteAmount = parseTokenInput(sellQuantity || "0");
       pricePerNete = parseTokenInput(sellPrice || "0");
     } catch {
-      setToastMessage("输入格式不正确，请检查数量与单价");
+      setToastMessage(t("modules.c2cMarket.messages.invalidInput"));
       return;
     }
 
     if (neteAmount <= 0n) {
-      setToastMessage("请输入正确的出售数量");
+      setToastMessage(t("modules.c2cMarket.messages.invalidSellQuantity"));
       return;
     }
     if (pricePerNete <= 0n) {
-      setToastMessage("请输入正确的出售单价");
+      setToastMessage(t("modules.c2cMarket.messages.invalidSellPrice"));
       return;
     }
 
     if (guideMinPrice > 0n && pricePerNete < guideMinPrice) {
-      setToastMessage(`出售单价不能低于 ${formatTokenAmount(guideMinPrice, 18, 6)} U`);
+      setToastMessage(t("modules.c2cMarket.messages.priceTooLow", { price: formatTokenAmount(guideMinPrice, 18, 6) }));
       return;
     }
     if (guideMaxPrice > 0n && pricePerNete > guideMaxPrice) {
-      setToastMessage(`出售单价不能高于 ${formatTokenAmount(guideMaxPrice, 18, 6)} U`);
+      setToastMessage(t("modules.c2cMarket.messages.priceTooHigh", { price: formatTokenAmount(guideMaxPrice, 18, 6) }));
       return;
     }
 
@@ -327,9 +332,9 @@ export default function C2CMarketPage() {
       setIsModalOpen(false);
       await refreshOrders();
       switchTab("mine");
-      setToastMessage(`挂单成功，交易哈希：${tx.hash}`);
+      setToastMessage(t("modules.c2cMarket.messages.listingSuccess", { hash: tx.hash }));
     } catch (error) {
-      const message = error instanceof Error ? error.message : "挂单失败，请稍后重试";
+      const message = error instanceof Error ? error.message : t("modules.c2cMarket.messages.listingFailed");
       setToastMessage(message);
     } finally {
       setActionKey("");
@@ -339,7 +344,7 @@ export default function C2CMarketPage() {
   return (
     <C2CPageFrame zone="self">
       <section className="c2c-market-shell">
-        <div className="c2c-market-tabs" role="tablist" aria-label="订单视图切换">
+        <div className="c2c-market-tabs" role="tablist" aria-label={t("modules.c2cMarket.ariaTabs")}>
           {marketTabs.map((tab) => (
             <button
               key={tab.key}
@@ -349,32 +354,32 @@ export default function C2CMarketPage() {
               className={activeView === tab.key ? "c2c-market-tab is-active" : "c2c-market-tab"}
               onClick={() => switchTab(tab.key)}
             >
-              {tab.label}
+              {t(tab.labelKey)}
             </button>
           ))}
         </div>
 
-        {wallet.isConnected ? null : <p className="mb-3 text-xs text-white/70">当前未连接钱包，连接后可查看我的订单并执行挂单/吃单交易。</p>}
+        {wallet.isConnected ? null : <p className="mb-3 text-xs text-white/70">{t("modules.c2cMarket.connectHint")}</p>}
 
         {activeView === "market" ? (
           <section className="c2c-surface c2c-market-panel">
             <div className="c2c-toolbar">
-              <label className="c2c-search-field" aria-label="搜索订单编号">
+              <label className="c2c-search-field" aria-label={t("modules.c2cMarket.searchAria")}>
                 <Icon icon="mdi:magnify" aria-hidden="true" />
                 <input
                   value={searchInput}
                   onChange={(event) => setSearchInput(event.target.value)}
-                  placeholder="搜索订单编号 / 卖家地址"
+                  placeholder={t("modules.c2cMarket.searchPlaceholder")}
                 />
               </label>
-              <button type="button" className="c2c-btn c2c-btn-primary" onClick={handleSearch}>搜索</button>
+              <button type="button" className="c2c-btn c2c-btn-primary" onClick={handleSearch}>{t("modules.c2cMarket.search")}</button>
               <button type="button" className="c2c-btn c2c-btn-secondary" onClick={() => setIsModalOpen(true)}>
-                我要挂单
+                {t("modules.c2cMarket.createListing")}
               </button>
             </div>
 
             <div className="px-4 py-3 text-xs text-white/65">
-              指导价区间：
+              {t("modules.c2cMarket.guideRange")}
               {guideMinPrice > 0n ? `${formatTokenAmount(guideMinPrice, 18, 6)} U` : "--"}
               {" - "}
               {guideMaxPrice > 0n ? `${formatTokenAmount(guideMaxPrice, 18, 6)} U` : "--"}
@@ -382,30 +387,30 @@ export default function C2CMarketPage() {
 
             <div className="c2c-order-table">
               <header className="c2c-order-table-head">
-                <span>订单编号</span>
-                <span>单价</span>
-                <span>数量</span>
-                <span>总价</span>
-                <span>购买</span>
+                <span>{t("modules.c2cMarket.orderId")}</span>
+                <span>{t("modules.c2cMarket.unitPrice")}</span>
+                <span>{t("modules.c2cMarket.quantity")}</span>
+                <span>{t("modules.c2cMarket.total")}</span>
+                <span>{t("modules.c2cMarket.buy")}</span>
               </header>
 
               <div className="c2c-order-table-body">
                 {publicOrdersQuery.isLoading ? (
-                  <div className="c2c-empty-state">订单加载中...</div>
+                  <div className="c2c-empty-state">{t("modules.c2cMarket.loadingOrders")}</div>
                 ) : publicOrdersQuery.isError ? (
                   <div className="c2c-empty-state">
-                    {publicOrdersQuery.error instanceof Error ? publicOrdersQuery.error.message : "订单拉取失败，请稍后重试"}
+                    {publicOrdersQuery.error instanceof Error ? publicOrdersQuery.error.message : t("modules.c2cMarket.loadOrdersFailed")}
                   </div>
                 ) : filteredMarketOrders.length === 0 ? (
-                  <div className="c2c-empty-state">没有找到可交易的订单。</div>
+                  <div className="c2c-empty-state">{t("modules.c2cMarket.noOrders")}</div>
                 ) : (
                   filteredMarketOrders.map((order) => (
                     <article className="c2c-order-row" key={order.orderId || order.orderNo}>
                       <div className="c2c-order-cell c2c-order-main-cell">
                         <div className="c2c-order-id-block">
-                          <span className="c2c-mobile-key">订单编号</span>
+                          <span className="c2c-mobile-key">{t("modules.c2cMarket.orderId")}</span>
                           <strong className="c2c-order-id">{order.orderId || order.orderNo || "--"}</strong>
-                          <p className="c2c-sub-meta">卖家 {shortAddress(order.seller)} · 挂单时间 {formatDateTime(order.createdAt)}</p>
+                          <p className="c2c-sub-meta">{t("modules.c2cMarket.seller")} {shortAddress(order.seller)} · {t("modules.c2cMarket.listedAt")} {formatDateTime(order.createdAt, locale)}</p>
                         </div>
                         <button
                           type="button"
@@ -413,22 +418,22 @@ export default function C2CMarketPage() {
                           disabled={actionKey === `fill-${order.orderId}`}
                           onClick={() => handlePurchase(order)}
                         >
-                          {actionKey === `fill-${order.orderId}` ? "购买中..." : "购买"}
+                          {actionKey === `fill-${order.orderId}` ? t("modules.c2cMarket.buying") : t("modules.c2cMarket.buy")}
                         </button>
                       </div>
 
                       <div className="c2c-order-cell">
-                        <span className="c2c-mobile-key">单价</span>
+                        <span className="c2c-mobile-key">{t("modules.c2cMarket.unitPrice")}</span>
                         <strong className="c2c-order-price">{formatUnitPrice(order.priceUsdt)}</strong>
                       </div>
 
                       <div className="c2c-order-cell">
-                        <span className="c2c-mobile-key">数量</span>
+                        <span className="c2c-mobile-key">{t("modules.c2cMarket.quantity")}</span>
                         <span>{formatQuantity(order.neteAmount)}</span>
                       </div>
 
                       <div className="c2c-order-cell">
-                        <span className="c2c-mobile-key">总价</span>
+                        <span className="c2c-mobile-key">{t("modules.c2cMarket.total")}</span>
                         <span>{formatTotal(order.totalUsdt)}</span>
                       </div>
 
@@ -439,7 +444,7 @@ export default function C2CMarketPage() {
                           disabled={actionKey === `fill-${order.orderId}`}
                           onClick={() => handlePurchase(order)}
                         >
-                          {actionKey === `fill-${order.orderId}` ? "购买中..." : "购买"}
+                          {actionKey === `fill-${order.orderId}` ? t("modules.c2cMarket.buying") : t("modules.c2cMarket.buy")}
                         </button>
                       </div>
                     </article>
@@ -453,27 +458,27 @@ export default function C2CMarketPage() {
             <section className="c2c-surface c2c-card-section">
               <header className="c2c-section-heading">
                 <div>
-                  <h2>当前挂单</h2>
-                  <p>仅展示你当前处于 Open 状态的卖单，可直接取消。</p>
+                  <h2>{t("modules.c2cMarket.currentListings")}</h2>
+                  <p>{t("modules.c2cMarket.currentListingsDesc")}</p>
                 </div>
               </header>
 
               <div className="c2c-list-stack">
                 {mySellOrdersQuery.isLoading ? (
-                  <div className="c2c-empty-state">加载中...</div>
+                  <div className="c2c-empty-state">{t("modules.c2cMarket.loading")}</div>
                 ) : mySellOrdersQuery.isError ? (
                   <div className="c2c-empty-state">
-                    {mySellOrdersQuery.error instanceof Error ? mySellOrdersQuery.error.message : "我的挂单加载失败"}
+                    {mySellOrdersQuery.error instanceof Error ? mySellOrdersQuery.error.message : t("modules.c2cMarket.myListingsFailed")}
                   </div>
                 ) : currentOrders.length === 0 ? (
-                  <div className="c2c-empty-state">当前没有挂单，点击“我要挂单”即可新增出售订单。</div>
+                  <div className="c2c-empty-state">{t("modules.c2cMarket.noListings")}</div>
                 ) : (
                   currentOrders.map((order) => (
                     <article className="c2c-order-card" key={order.orderId || order.orderNo}>
                       <div className="c2c-order-card-top">
                         <div>
                           <h3 className="c2c-order-card-title">{order.orderId || order.orderNo || "--"}</h3>
-                          <p className="c2c-sub-meta">创建时间 {formatDateTime(order.createdAt)}</p>
+                          <p className="c2c-sub-meta">{t("modules.c2cMarket.createdAt")} {formatDateTime(order.createdAt, locale)}</p>
                         </div>
                         <button
                           type="button"
@@ -481,25 +486,25 @@ export default function C2CMarketPage() {
                           disabled={actionKey === `cancel-${order.orderId}`}
                           onClick={() => handleCancelOrder(order)}
                         >
-                          {actionKey === `cancel-${order.orderId}` ? "取消中..." : "取消订单"}
+                          {actionKey === `cancel-${order.orderId}` ? t("modules.c2cMarket.canceling") : t("modules.c2cMarket.cancelOrder")}
                         </button>
                       </div>
 
                       <div className="c2c-order-card-grid">
                         <div className="c2c-metric">
-                          <span>出售单价</span>
+                          <span>{t("modules.c2cMarket.sellPrice")}</span>
                           <strong>{formatUnitPrice(order.priceUsdt)}</strong>
                         </div>
                         <div className="c2c-metric">
-                          <span>出售数量</span>
+                          <span>{t("modules.c2cMarket.sellQuantity")}</span>
                           <strong>{formatQuantity(order.neteAmount)}</strong>
                         </div>
                         <div className="c2c-metric">
-                          <span>总价</span>
+                          <span>{t("modules.c2cMarket.total")}</span>
                           <strong>{formatTotal(order.totalUsdt)}</strong>
                         </div>
                         <div className="c2c-metric">
-                          <span>状态</span>
+                          <span>{t("modules.c2cMarket.status")}</span>
                           <strong>{order.status}</strong>
                         </div>
                       </div>
@@ -512,44 +517,44 @@ export default function C2CMarketPage() {
             <section className="c2c-surface c2c-card-section">
               <header className="c2c-section-heading">
                 <div>
-                  <h2>历史成交</h2>
-                  <p>包含我的吃单和已结束卖单，按时间倒序展示。</p>
+                  <h2>{t("modules.c2cMarket.history")}</h2>
+                  <p>{t("modules.c2cMarket.historyDesc")}</p>
                 </div>
               </header>
 
               <div className="c2c-list-stack">
                 {myTakenOrdersQuery.isLoading || mySellOrdersQuery.isLoading ? (
-                  <div className="c2c-empty-state">加载中...</div>
+                  <div className="c2c-empty-state">{t("modules.c2cMarket.loading")}</div>
                 ) : myTakenOrdersQuery.isError ? (
                   <div className="c2c-empty-state">
-                    {myTakenOrdersQuery.error instanceof Error ? myTakenOrdersQuery.error.message : "我的吃单加载失败"}
+                    {myTakenOrdersQuery.error instanceof Error ? myTakenOrdersQuery.error.message : t("modules.c2cMarket.myTakenFailed")}
                   </div>
                 ) : historyOrders.length === 0 ? (
-                  <div className="c2c-empty-state">历史成交还没有记录。</div>
+                  <div className="c2c-empty-state">{t("modules.c2cMarket.noHistory")}</div>
                 ) : (
                   historyOrders.map((item) => (
                     <article className="c2c-history-item" key={`${item.orderId || item.orderNo}-${item.completedAt}`}>
                       <div className="c2c-history-top">
                         <h3 className="c2c-order-card-title">{item.orderId || item.orderNo || "--"}</h3>
-                        <span className={item.type === "购买" ? "c2c-type-chip buy" : "c2c-type-chip sell"}>{item.type}</span>
+                        <span className={item.typeKey === "buy" ? "c2c-type-chip buy" : "c2c-type-chip sell"}>{item.type}</span>
                       </div>
 
                       <div className="c2c-history-meta">
                         <div>
-                          <span>成交单价</span>
+                          <span>{t("modules.c2cMarket.dealPrice")}</span>
                           <strong>{formatUnitPrice(item.priceUsdt)}</strong>
                         </div>
                         <div>
-                          <span>成交量</span>
+                          <span>{t("modules.c2cMarket.dealQuantity")}</span>
                           <strong>{formatQuantity(item.neteAmount)}</strong>
                         </div>
                         <div>
-                          <span>成交总价</span>
+                          <span>{t("modules.c2cMarket.dealTotal")}</span>
                           <strong>{formatTotal(item.totalUsdt)}</strong>
                         </div>
                         <div>
-                          <span>成交时间</span>
-                          <strong>{formatDateTime(item.completedAt)}</strong>
+                          <span>{t("modules.c2cMarket.dealTime")}</span>
+                          <strong>{formatDateTime(item.completedAt, locale)}</strong>
                         </div>
                       </div>
                     </article>
@@ -563,9 +568,9 @@ export default function C2CMarketPage() {
 
       <div className={isModalOpen ? "c2c-modal-backdrop is-open" : "c2c-modal-backdrop"} onClick={() => setIsModalOpen(false)}>
         <div className="c2c-modal" onClick={(event) => event.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby="c2cListingTitle">
-          <h3 id="c2cListingTitle">我要挂单</h3>
+          <h3 id="c2cListingTitle">{t("modules.c2cMarket.modalTitle")}</h3>
           <p>
-            当前指导价区间：
+            {t("modules.c2cMarket.modalGuideRange")}
             {guideMinPrice > 0n ? `${formatTokenAmount(guideMinPrice, 18, 6)} U` : "--"}
             {" - "}
             {guideMaxPrice > 0n ? `${formatTokenAmount(guideMaxPrice, 18, 6)} U` : "--"}
@@ -573,18 +578,18 @@ export default function C2CMarketPage() {
 
           <form className="c2c-modal-form" onSubmit={handleCreateListing}>
             <label className="c2c-modal-field">
-              <span>出售数量（NETE）</span>
+              <span>{t("modules.c2cMarket.sellQuantityLabel")}</span>
               <input
                 type="number"
                 min="0.0001"
                 step="0.0001"
                 value={sellQuantity}
                 onChange={(event) => setSellQuantity(event.target.value)}
-                placeholder="请输入出售数量"
+                placeholder={t("modules.c2cMarket.sellQuantityPlaceholder")}
               />
             </label>
             <label className="c2c-modal-field">
-              <span>出售单价（USDT）</span>
+              <span>{t("modules.c2cMarket.sellPriceLabel")}</span>
               <input
                 type="number"
                 min={guideMinPrice > 0n ? formatUnits(guideMinPrice, 18) : "0"}
@@ -592,14 +597,14 @@ export default function C2CMarketPage() {
                 step="0.000001"
                 value={sellPrice}
                 onChange={(event) => setSellPrice(event.target.value)}
-                placeholder="请输入出售单价"
+                placeholder={t("modules.c2cMarket.sellPricePlaceholder")}
               />
             </label>
 
             <div className="c2c-modal-actions">
-              <button type="button" className="c2c-btn c2c-btn-ghost" onClick={() => setIsModalOpen(false)}>取消</button>
+              <button type="button" className="c2c-btn c2c-btn-ghost" onClick={() => setIsModalOpen(false)}>{t("modules.c2cMarket.cancel")}</button>
               <button type="submit" className="c2c-btn c2c-btn-primary" disabled={actionKey === "create-order"}>
-                {actionKey === "create-order" ? "提交中..." : "确定"}
+                {actionKey === "create-order" ? t("modules.c2cMarket.submitting") : t("modules.c2cMarket.confirm")}
               </button>
             </div>
           </form>

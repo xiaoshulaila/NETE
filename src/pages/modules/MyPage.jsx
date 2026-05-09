@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { useWalletConnector } from "../../hooks/useWalletConnector";
 import { getClaimMessage, getIncomeLedger, getIncomeOverview, getReferralInfo } from "../../services/neteApi";
 import { claimWithSignature, readNetworkUserData, readTokenMetrics, readUserBalances } from "../../services/neteContracts";
@@ -40,12 +41,13 @@ function normalizeLedgerRow(row, index) {
 }
 
 const claimActions = [
-  { key: "referral", label: "领取推荐奖励" },
-  { key: "dividend", label: "领取分红奖励" },
-  { key: "v9", label: "领取 V9 奖励" },
+  { key: "referral", labelKey: "modules.my.claimActions.referral" },
+  { key: "dividend", labelKey: "modules.my.claimActions.dividend" },
+  { key: "v9", labelKey: "modules.my.claimActions.v9" },
 ];
 
 export default function MyPage() {
+  const { t } = useTranslation();
   const wallet = useWalletConnector();
   const queryClient = useQueryClient();
   const [claimingType, setClaimingType] = useState("");
@@ -112,24 +114,24 @@ export default function MyPage() {
     const network = networkDataQuery.data || {};
 
     return [
-      { label: "钱包地址", value: wallet.isConnected ? shortAddress(wallet.currentAddress) : "未连接" },
-      { label: "会员等级", value: `V${overview.user_level ?? network.userLevel ?? 0}` },
-      { label: "NETE 余额", value: `${formatTokenAmount(balances.neteBalance ?? 0n, 18, 4)} NETE` },
-      { label: "USDT 余额", value: `${formatTokenAmount(balances.usdtBalance ?? 0n, 18, 4)} USDT` },
-      { label: "推荐待领取", value: `${formatTokenAmount(overview.pending_referral ?? 0n, 18, 4)} NETE` },
-      { label: "分红待领取", value: `${formatTokenAmount(overview.pending_dividend ?? 0n, 18, 4)} NETE` },
-      { label: "V9 待领取", value: `${formatTokenAmount(overview.pending_v9 ?? 0n, 18, 4)} NETE` },
-      { label: "直推人数", value: `${referral.direct_count ?? 0}` },
-      { label: "团队业绩", value: `${formatTokenAmount(referral.subtree_perf ?? 0n, 18, 2)} NETE` },
-      { label: "当前流通总量", value: `${formatTokenAmount(tokenMetrics.circulatingSupply ?? 0n, tokenMetrics.decimals ?? 18, 2)} NETE` },
+      { label: t("modules.my.summary.wallet"), value: wallet.isConnected ? shortAddress(wallet.currentAddress) : t("modules.my.disconnected") },
+      { label: t("modules.my.summary.level"), value: `V${overview.user_level ?? network.userLevel ?? 0}` },
+      { label: t("modules.my.summary.nete"), value: `${formatTokenAmount(balances.neteBalance ?? 0n, 18, 4)} NETE` },
+      { label: t("modules.my.summary.usdt"), value: `${formatTokenAmount(balances.usdtBalance ?? 0n, 18, 4)} USDT` },
+      { label: t("modules.my.summary.referral"), value: `${formatTokenAmount(overview.pending_referral ?? 0n, 18, 4)} NETE` },
+      { label: t("modules.my.summary.dividend"), value: `${formatTokenAmount(overview.pending_dividend ?? 0n, 18, 4)} NETE` },
+      { label: t("modules.my.summary.v9"), value: `${formatTokenAmount(overview.pending_v9 ?? 0n, 18, 4)} NETE` },
+      { label: t("modules.my.summary.directs"), value: `${referral.direct_count ?? 0}` },
+      { label: t("modules.my.summary.team"), value: `${formatTokenAmount(referral.subtree_perf ?? 0n, 18, 2)} NETE` },
+      { label: t("modules.my.summary.circulating"), value: `${formatTokenAmount(tokenMetrics.circulatingSupply ?? 0n, tokenMetrics.decimals ?? 18, 2)} NETE` },
     ];
-  }, [balancesQuery.data, incomeOverviewQuery.data, networkDataQuery.data, referralInfoQuery.data, tokenMetricsQuery.data, wallet.currentAddress, wallet.isConnected]);
+  }, [balancesQuery.data, incomeOverviewQuery.data, networkDataQuery.data, referralInfoQuery.data, t, tokenMetricsQuery.data, wallet.currentAddress, wallet.isConnected]);
 
   const loading = incomeOverviewQuery.isLoading || referralInfoQuery.isLoading || balancesQuery.isLoading;
 
   const handleClaim = async (type) => {
     if (!wallet.isConnected) {
-      setNotice("请先连接钱包");
+      setNotice(t("modules.my.messages.connectWallet"));
       return;
     }
 
@@ -145,7 +147,7 @@ export default function MyPage() {
         amount: claimMessage.amount,
         deadline: Number(claimMessage.deadline || 0),
       });
-      setNotice(`领取提交成功，交易哈希：${tx.hash}`);
+      setNotice(t("modules.my.messages.success", { hash: tx.hash }));
 
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["nete", "income-overview", wallet.currentAddress] }),
@@ -153,9 +155,9 @@ export default function MyPage() {
         queryClient.invalidateQueries({ queryKey: ["nete", "network-data", wallet.currentAddress] }),
       ]);
     } catch (error) {
-      const message = error instanceof Error ? error.message : "签名领取失败，请稍后重试";
+      const message = error instanceof Error ? error.message : t("modules.my.messages.failed");
       if (message.includes("claim signature disabled")) {
-        setNotice("当前环境未开启签名领取");
+        setNotice(t("modules.my.messages.disabled"));
       } else {
         setNotice(message);
       }
@@ -169,18 +171,18 @@ export default function MyPage() {
       <header className="rounded-[28px] bg-transparent">
         <div className="grid gap-6 md:grid-cols-[1fr_auto] md:items-center">
           <div className="max-w-3xl">
-            <h1 className="font-display text-2xl font-black tracking-tight text-white md:text-3xl">我的</h1>
-            <p className="mt-3 max-w-2xl text-sm text-white/80">汇总链上资产、收益与推荐信息，并支持推荐/分红/V9 签名领取。</p>
+            <h1 className="font-display text-2xl font-black tracking-tight text-white md:text-3xl">{t("modules.my.title")}</h1>
+            <p className="mt-3 max-w-2xl text-sm text-white/80">{t("modules.my.desc")}</p>
           </div>
         </div>
       </header>
 
-      {!wallet.isConnected ? <p className="text-xs text-white/70">当前未连接钱包，连接后可查看完整资产与收益信息。</p> : null}
+      {!wallet.isConnected ? <p className="text-xs text-white/70">{t("modules.my.connectHint")}</p> : null}
 
       <article className="rounded-2xl border border-white/10 bg-transparent p-5">
-        <h2 className="mb-4 font-display text-base font-bold tracking-wide text-white md:text-xl">全局资产概览</h2>
+        <h2 className="mb-4 font-display text-base font-bold tracking-wide text-white md:text-xl">{t("modules.my.overview")}</h2>
         {loading ? (
-          <div className="rounded-xl border border-white/10 px-4 py-8 text-center text-sm text-white/65">数据加载中...</div>
+          <div className="rounded-xl border border-white/10 px-4 py-8 text-center text-sm text-white/65">{t("modules.my.loading")}</div>
         ) : (
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             {summaryItems.map((item) => (
@@ -194,8 +196,8 @@ export default function MyPage() {
       </article>
 
       <article className="rounded-2xl border border-white/10 bg-transparent p-5">
-        <h2 className="font-display text-base font-bold tracking-wide text-white md:text-xl">签名领取</h2>
-        <p className="mt-2 text-xs text-white/65">流程：服务端生成 claim-message，前端发起链上 claimWithSignature。</p>
+        <h2 className="font-display text-base font-bold tracking-wide text-white md:text-xl">{t("modules.my.claimTitle")}</h2>
+        <p className="mt-2 text-xs text-white/65">{t("modules.my.claimDesc")}</p>
         <div className="mt-4 flex flex-wrap gap-3">
           {claimActions.map((action) => (
             <button
@@ -205,13 +207,13 @@ export default function MyPage() {
               disabled={claimingType === action.key || Boolean(claimingType) || !wallet.isConnected}
               onClick={() => handleClaim(action.key)}
             >
-              {claimingType === action.key ? "处理中..." : action.label}
+              {claimingType === action.key ? t("modules.my.processing") : t(action.labelKey)}
             </button>
           ))}
         </div>
         {lastClaimInfo ? (
           <p className="mt-3 text-xs text-white/70">
-            最近一次签名：{lastClaimInfo.type} · 金额 {formatTokenAmount(lastClaimInfo.amount ?? 0n, 18, 4)} NETE · 截止时间 {formatUnixTime(lastClaimInfo.deadline)}
+            {t("modules.my.lastClaim", { type: lastClaimInfo.type, amount: formatTokenAmount(lastClaimInfo.amount ?? 0n, 18, 4), deadline: formatUnixTime(lastClaimInfo.deadline) })}
           </p>
         ) : null}
         {notice ? <p className="mt-3 break-all text-xs text-white/75">{notice}</p> : null}
@@ -219,29 +221,29 @@ export default function MyPage() {
 
       <article className="rounded-2xl border border-white/10 bg-transparent p-5">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-          <h2 className="font-display text-base font-bold tracking-wide text-white md:text-xl">收益流水</h2>
-          <span className="text-xs text-white/50">最近 {ledgerRows.length} 条</span>
+          <h2 className="font-display text-base font-bold tracking-wide text-white md:text-xl">{t("modules.my.ledgerTitle")}</h2>
+          <span className="text-xs text-white/50">{t("modules.my.recentCount", { count: ledgerRows.length })}</span>
         </div>
 
         <div className="overflow-x-auto rounded-xl border border-white/10">
           <table className="min-w-full border-collapse text-left text-xs md:text-sm [&_th]:px-4 [&_th]:py-3 [&_th]:font-semibold [&_th]:text-white/65 [&_td]:border-t [&_td]:border-white/10 [&_td]:px-4 [&_td]:py-3 [&_td]:text-white/85">
             <thead>
               <tr>
-                <th>时间</th>
-                <th>类型</th>
-                <th>数量（NETE）</th>
-                <th>余额（NETE）</th>
-                <th>交易 Hash</th>
+                <th>{t("modules.my.time")}</th>
+                <th>{t("modules.my.type")}</th>
+                <th>{t("modules.my.amount")}</th>
+                <th>{t("modules.my.balance")}</th>
+                <th>{t("modules.my.txHash")}</th>
               </tr>
             </thead>
             <tbody>
               {incomeLedgerQuery.isLoading ? (
                 <tr>
-                  <td colSpan={5} className="text-center text-white/65">加载中...</td>
+                  <td colSpan={5} className="text-center text-white/65">{t("common.loading")}</td>
                 </tr>
               ) : ledgerRows.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="text-center text-white/65">暂无收益流水</td>
+                  <td colSpan={5} className="text-center text-white/65">{t("modules.my.emptyLedger")}</td>
                 </tr>
               ) : (
                 ledgerRows.map((row) => (
@@ -260,16 +262,16 @@ export default function MyPage() {
       </article>
 
       <article className="rounded-2xl border border-white/10 bg-transparent p-5">
-        <h2 className="font-display text-base font-bold tracking-wide text-white md:text-xl">快捷入口</h2>
+        <h2 className="font-display text-base font-bold tracking-wide text-white md:text-xl">{t("modules.my.quickTitle")}</h2>
         <div className="mt-4 flex flex-wrap gap-3">
           <Link to="/account/team" className="inline-flex min-h-11 items-center justify-center rounded-full bg-[#caff00] px-5 text-sm font-semibold tracking-wide text-black transition hover:shadow-[0_0_30px_rgba(202,255,0,0.45)]">
-            进入团队
+            {t("modules.my.teamEntry")}
           </Link>
           <Link to="/finance/buy-seed" className="inline-flex min-h-11 items-center justify-center rounded-full border border-white/20 bg-transparent px-5 text-sm font-semibold tracking-wide text-white transition hover:border-white/40 hover:bg-white/5">
-            购买种子 NETE
+            {t("modules.my.seedEntry")}
           </Link>
           <Link to="/mining" className="inline-flex min-h-11 items-center justify-center rounded-full border border-white/20 bg-transparent px-5 text-sm font-semibold tracking-wide text-white transition hover:border-white/40 hover:bg-white/5">
-            查看矿机
+            {t("modules.my.miningEntry")}
           </Link>
         </div>
       </article>

@@ -1,33 +1,19 @@
 import { useEffect } from "react";
 import { Icon } from "@iconify/react";
 import { NavLink } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import GlobalHeader from "../components/common/GlobalHeader";
 import FeaturesSection from "../components/landing/FeaturesSection";
 import FooterSection from "../components/landing/FooterSection";
 import HeroSection from "../components/landing/HeroSection";
 import MarketsSection from "../components/landing/MarketsSection";
 
-const modelMechanisms = [
-  "初始总量 30 亿枚，恒定不增发。",
-  "终极通缩目标：流通量压缩至 2100 万枚。",
-  "每次链上提币与激活矿机触发销毁，形成强制通缩。",
-  "提币手续费按矿机等级收取 20%-30%，每日链上自动分配。",
-];
-
-const roadmapItems = [
-  "提币手续费分配：20% 销毁、30% 项目方、50% 社区分红。",
-  "社区分红中 50% 按 V1-V9 平分，50% 按当日新增业绩加权。",
-  "C2C 交易卖方手续费 10%（USDT），用于流动性支持与生态建设。",
-  "V4 及以上可申请做市商账户，免手续费并赚取 5% 市场差价。",
-];
-
-const contractItems = [
-  { name: "启动分配结构", detail: "种子轮 500 万（0.17%）+ 阶段空投 500 万（0.17%），其余由质押销毁挖矿释放" },
-  { name: "POS 产出配比", detail: "约 29.9 亿（99.66%）通过 POS 质押销毁挖矿产生，确保产出与通缩协同" },
-  { name: "安全与透明性", detail: "无中心资金池、合约自动执行、权限可放弃、交易与分配数据全链上可追溯" },
-];
-
 export default function LandingPage() {
+  const { t } = useTranslation();
+  const modelMechanisms = t("landing.project.modelMechanisms", { returnObjects: true });
+  const roadmapItems = t("landing.project.roadmapItems", { returnObjects: true });
+  const contractItems = t("landing.project.contractItems", { returnObjects: true });
+
   useEffect(() => {
     document.title = "NETE";
 
@@ -65,9 +51,9 @@ export default function LandingPage() {
     const launchBtn = document.getElementById("launch-btn");
     const ctaPrimaryBtn = document.getElementById("cta-primary-btn");
 
-    const handleGetStarted = () => showToast("🚀 正在加载 NETE 核心模型…");
-    const handleLaunch = () => showToast("✅ 正在进入 NETE 应用生态…");
-    const handleCreateWallet = () => showToast("🛡 正在初始化你的链上参与账户…");
+    const handleGetStarted = () => showToast(t("landing.toast.core"));
+    const handleLaunch = () => showToast(t("landing.toast.launch"));
+    const handleCreateWallet = () => showToast(t("landing.toast.wallet"));
 
     getStartedBtn?.addEventListener("click", handleGetStarted);
     launchBtn?.addEventListener("click", handleLaunch);
@@ -84,7 +70,7 @@ export default function LandingPage() {
       launchBtn?.removeEventListener("click", handleLaunch);
       ctaPrimaryBtn?.removeEventListener("click", handleCreateWallet);
     };
-  }, []);
+  }, [t]);
 
   return (
     <>
@@ -176,14 +162,13 @@ export default function LandingPage() {
           <div className="container">
             <div className="section__header">
               <span className="section__eyebrow" aria-hidden="true">
-                // Project Overview
+                {t("landing.project.eyebrow")}
               </span>
               <h2 className="section__title" id="project-heading">
-                NETE 项目介绍
+                {t("landing.project.title")}
               </h2>
               <p className="section__desc">
-                NETE 定位为“透明、可持续、社区共治”的链上时间价值生态，通过规则可验证、过程可追踪、分配可审计的机制设计，
-                系统性解决传统卷轴模型中“黑箱操作、不可持续、信任脆弱”的结构性问题。
+                {t("landing.project.desc")}
               </p>
             </div>
 
@@ -192,7 +177,7 @@ export default function LandingPage() {
                 <div className="feature-card__icon feature-card__icon--acid" role="img" aria-label="model mechanism">
                   <Icon className="feature-card__icon-svg" icon="mdi:cog-outline" />
                 </div>
-                <h3 className="feature-card__title">经济模型关键机制</h3>
+                <h3 className="feature-card__title">{t("landing.project.mechanismsTitle")}</h3>
                 <ul className="space-y-2 text-sm text-white/80">
                   {modelMechanisms.map((item) => (
                     <li key={item}>{item}</li>
@@ -204,7 +189,7 @@ export default function LandingPage() {
                 <div className="feature-card__icon feature-card__icon--purple" role="img" aria-label="roadmap">
                   <Icon className="feature-card__icon-svg" icon="mdi:compass-outline" />
                 </div>
-                <h3 className="feature-card__title">分配与流通规则</h3>
+                <h3 className="feature-card__title">{t("landing.project.rulesTitle")}</h3>
                 <ul className="space-y-2 text-sm text-white/80">
                   {roadmapItems.map((item) => (
                     <li key={item}>{item}</li>
@@ -231,15 +216,14 @@ export default function LandingPage() {
           <div className="container">
             <div className="cta-section__inner">
               <h2 className="cta-section__title" id="cta-heading">
-                准备加入 NETE 链上经济生态？
+                {t("landing.cta.title")}
               </h2>
               <p className="cta-section__subtitle">
-                从矿机产出、社区治理到 C2C 流通，所有关键行为由合约自动执行并全链路可审计，
-                为长期参与者提供可验证、可持续的价值增长路径。
+                {t("landing.cta.subtitle")}
               </p>
               <div className="cta-section__actions">
                 <button className="btn btn--primary btn--lg" id="cta-primary-btn">
-                  立即参与 NETE
+                  {t("landing.cta.action")}
                 </button>
               </div>
               <div className="download-badges">
@@ -248,8 +232,8 @@ export default function LandingPage() {
                     <Icon className="download-badge__icon-svg" icon="mdi:pickaxe" />
                   </span>
                   <div className="download-badge__text">
-                    <div className="download-badge__sub">立即进入</div>
-                    <div className="download-badge__name">矿机模块</div>
+                    <div className="download-badge__sub">{t("landing.cta.enter")}</div>
+                    <div className="download-badge__name">{t("landing.cta.mining")}</div>
                   </div>
                 </NavLink>
                 <NavLink className="download-badge" to="/c2c" aria-label="Open c2c market module">
@@ -257,8 +241,8 @@ export default function LandingPage() {
                     <Icon className="download-badge__icon-svg" icon="mdi:swap-horizontal" />
                   </span>
                   <div className="download-badge__text">
-                    <div className="download-badge__sub">快速前往</div>
-                    <div className="download-badge__name">C2C 市场</div>
+                    <div className="download-badge__sub">{t("landing.cta.quick")}</div>
+                    <div className="download-badge__name">{t("landing.cta.c2c")}</div>
                   </div>
                 </NavLink>
               </div>
@@ -275,7 +259,7 @@ export default function LandingPage() {
 
       <div className="toast" id="toast" role="status" aria-live="polite" aria-atomic="true">
         <span className="toast__dot" aria-hidden="true"></span>
-        <span id="toast-msg">NETE 操作已成功提交</span>
+        <span id="toast-msg">{t("landing.toast.default")}</span>
       </div>
     </>
   );

@@ -1,13 +1,21 @@
 import { Icon } from "@iconify/react";
+import { useTranslation } from "react-i18next";
 
 export default function MarketsSection() {
+  const { t } = useTranslation();
+  const cards = t("landing.markets.cards", { returnObjects: true });
+
   return (
   <section className="section tokens-section" id="tokens" aria-labelledby="tokens-heading">
     <div className="glow-orb glow-orb--purple glow-orb--tokens-center" aria-hidden="true"></div>
     <div className="container">
       <div className="section__header">
-        <span className="section__eyebrow" aria-hidden="true">// Tokenomics</span>
-        <h2 className="section__title" id="tokens-heading">核心经济参数<br />一览</h2>
+        <span className="section__eyebrow" aria-hidden="true">{t("landing.markets.eyebrow")}</span>
+        <h2 className="section__title" id="tokens-heading">
+          {t("landing.markets.title").split("\n").map((line, index) => (
+            <span key={`${line}-${index}`}>{index > 0 ? <br /> : null}{line}</span>
+          ))}
+        </h2>
       </div>
     </div>
     <div className="container container--bleed">
@@ -18,15 +26,15 @@ export default function MarketsSection() {
           <article className="token-card" tabIndex={0}>
             <div className="token-card__header">
               <div>
-                <div className="token-card__name">发行总量</div>
-                <div className="token-card__ticker">SUPPLY</div>
+                <div className="token-card__name">{cards[0]?.name}</div>
+                <div className="token-card__ticker">{cards[0]?.ticker}</div>
               </div>
               <div className="token-card__icon token-icon--btc">
                 <Icon className="token-card__icon-svg" icon="mdi:cube-outline" />
               </div>
             </div>
-            <div className="token-card__price">30 亿 NETE</div>
-            <span className="token-card__change token-card__change--up">恒定不增发</span>
+            <div className="token-card__price">{cards[0]?.price}</div>
+            <span className="token-card__change token-card__change--up">{cards[0]?.change}</span>
             <div className="sparkline" aria-hidden="true">
               <svg viewBox="0 0 180 40" preserveAspectRatio="none">
                 <defs>
@@ -44,15 +52,15 @@ export default function MarketsSection() {
           <article className="token-card" tabIndex={0}>
             <div className="token-card__header">
               <div>
-                <div className="token-card__name">极限通缩目标</div>
-                <div className="token-card__ticker">DEFLATION</div>
+                <div className="token-card__name">{cards[1]?.name}</div>
+                <div className="token-card__ticker">{cards[1]?.ticker}</div>
               </div>
               <div className="token-card__icon token-icon--eth">
                 <Icon className="token-card__icon-svg" icon="mdi:chart-line-variant" />
               </div>
             </div>
-            <div className="token-card__price">2100 万 NETE</div>
-            <span className="token-card__change token-card__change--down">提币/激活触发销毁</span>
+            <div className="token-card__price">{cards[1]?.price}</div>
+            <span className="token-card__change token-card__change--down">{cards[1]?.change}</span>
             <div className="sparkline" aria-hidden="true">
               <svg viewBox="0 0 180 40" preserveAspectRatio="none">
                 <defs>
@@ -70,15 +78,15 @@ export default function MarketsSection() {
           <article className="token-card" tabIndex={0}>
             <div className="token-card__header">
               <div>
-                <div className="token-card__name">启动分配结构</div>
-                <div className="token-card__ticker">BOOTSTRAP</div>
+                <div className="token-card__name">{cards[2]?.name}</div>
+                <div className="token-card__ticker">{cards[2]?.ticker}</div>
               </div>
               <div className="token-card__icon token-icon--sol">
                 <Icon className="token-card__icon-svg" icon="mdi:rocket-launch-outline" />
               </div>
             </div>
-            <div className="token-card__price">500 万 + 500 万</div>
-            <span className="token-card__change token-card__change--up">种子轮 0.5 USDT / NETE</span>
+            <div className="token-card__price">{cards[2]?.price}</div>
+            <span className="token-card__change token-card__change--up">{cards[2]?.change}</span>
             <div className="sparkline" aria-hidden="true">
               <svg viewBox="0 0 180 40" preserveAspectRatio="none">
                 <defs>
@@ -96,15 +104,15 @@ export default function MarketsSection() {
           <article className="token-card" tabIndex={0}>
             <div className="token-card__header">
               <div>
-                <div className="token-card__name">提币手续费分配</div>
-                <div className="token-card__ticker">FEE SPLIT</div>
+                <div className="token-card__name">{cards[3]?.name}</div>
+                <div className="token-card__ticker">{cards[3]?.ticker}</div>
               </div>
               <div className="token-card__icon token-icon--bnb">
                 <Icon className="token-card__icon-svg" icon="mdi:percent-outline" />
               </div>
             </div>
-            <div className="token-card__price">20% / 30% / 50%</div>
-            <span className="token-card__change token-card__change--up">销毁 / 项目方 / 社区</span>
+            <div className="token-card__price">{cards[3]?.price}</div>
+            <span className="token-card__change token-card__change--up">{cards[3]?.change}</span>
             <div className="sparkline" aria-hidden="true">
               <svg viewBox="0 0 180 40" preserveAspectRatio="none">
                 <defs>
@@ -122,15 +130,15 @@ export default function MarketsSection() {
           <article className="token-card" tabIndex={0}>
             <div className="token-card__header">
               <div>
-                <div className="token-card__name">C2C 流通机制</div>
-                <div className="token-card__ticker">C2C</div>
+                <div className="token-card__name">{cards[4]?.name}</div>
+                <div className="token-card__ticker">{cards[4]?.ticker}</div>
               </div>
               <div className="token-card__icon token-icon--avax">
                 <Icon className="token-card__icon-svg" icon="mdi:swap-horizontal-circle-outline" />
               </div>
             </div>
-            <div className="token-card__price">卖方手续费 10%</div>
-            <span className="token-card__change token-card__change--up">V4+ 做市商可申请免手续费</span>
+            <div className="token-card__price">{cards[4]?.price}</div>
+            <span className="token-card__change token-card__change--up">{cards[4]?.change}</span>
             <div className="sparkline" aria-hidden="true">
               <svg viewBox="0 0 180 40" preserveAspectRatio="none">
                 <defs>
