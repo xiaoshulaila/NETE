@@ -10,14 +10,12 @@ import { getRuntimeConfig } from "../../services/neteApi";
 import {
   activateMiner,
   approveNeteToCore,
-  claimAllRewards,
   claimAndActivateAirdropMiner,
   claimAirdropReward,
   claimReward,
   readTierConfigs,
   readUserBalances,
   readUserMiningData,
-  repurchaseExpiredMiners,
   withdrawProfit,
 } from "../../services/neteContracts";
 import { formatTokenAmount } from "../../utils/formatters";
@@ -51,19 +49,6 @@ function formatDaysByEpoch(endAt) {
   return Math.ceil(diff / 86400);
 }
 
-function toMiningErrorMessage(error, t) {
-  const message = error instanceof Error ? error.message : String(error || "");
-  if (message.includes("NoPendingReward")) return t("modules.mining.messages.noPendingReward");
-  if (message.includes("PosPoolInsufficient")) return t("modules.mining.messages.posPoolInsufficient");
-  if (message.includes("AirdropExpired")) return t("modules.mining.messages.airdropExpired");
-  if (message.includes("NFTRequired")) return t("modules.mining.messages.nftRequired");
-  if (message.includes("NFTAlreadyClaimed")) return t("modules.mining.messages.nftAlreadyClaimed");
-  if (message.includes("AirdropAlreadyComposed")) return t("modules.mining.messages.airdropAlreadyComposed");
-  if (message.includes("FragmentInsufficient")) return t("modules.mining.messages.fragmentInsufficient");
-  if (message.includes("NoExpiredMinerForRepurchase")) return t("modules.mining.messages.noExpiredMiners");
-  return message;
-}
-
 export default function MiningPage() {
   const { t } = useTranslation();
   const wallet = useWalletConnector();
@@ -74,16 +59,13 @@ export default function MiningPage() {
   const [airdropModel, setAirdropModel] = useState(null);
   const [purchaseAmount, setPurchaseAmount] = useState("1");
   const [paymentMethod, setPaymentMethod] = useState(PAYMENT_METHODS.principal);
-  const [acceptedAgreement, setAcceptedAgreement] = useState(false);
   const [agreementOpen, setAgreementOpen] = useState(false);
   const [modelPickerOpen, setModelPickerOpen] = useState(false);
-  const [txMessage, setTxMessage] = useState("");
   const [purchasing, setPurchasing] = useState(false);
   const [claimingAirdrop, setClaimingAirdrop] = useState(false);
-  const [claimingAll, setClaimingAll] = useState(false);
-  const [repurchasingAll, setRepurchasingAll] = useState(false);
   const [claimingId, setClaimingId] = useState("");
   const [withdrawingId, setWithdrawingId] = useState("");
+  const [withdrawingAll, setWithdrawingAll] = useState(false);
 
   const tiersQuery = useQuery({
     queryKey: ["nete", "miner-tiers"],
@@ -143,7 +125,6 @@ export default function MiningPage() {
           unitCount: tier.maxSlots,
           periodDays: tier.cycleDays,
           returnRate: tier.returnRateText,
-          extendDays: tier.extendDays,
           maxPeriodDays: tier.maxDays,
           withdrawFee: Number((tier.feeBps / 100).toFixed(2)),
           remaining: Math.max(tier.maxSlots - ownedCount, 0),
@@ -232,25 +213,11 @@ export default function MiningPage() {
       return sum + (Number.isFinite(raw) ? raw : 0);
     }, 0);
 
-    const avgProgress = purchasedMachines.length
-      ? Math.round(
-          purchasedMachines.reduce((sum, item) => sum + Math.round((item.cycleCurrent / item.cycleTotal) * 100), 0) / purchasedMachines.length,
-        )
-      : 0;
-
-    const avgRemaining = purchasedMachines.length
-      ? Math.round(purchasedMachines.reduce((sum, item) => sum + item.remainingDays, 0) / purchasedMachines.length)
-      : 0;
-
     return [
       { label: t("modules.mining.summary.holdings"), value: t("modules.mining.units.machines", { count: holdings }) },
-      { label: t("modules.mining.summary.positions"), value: t("modules.mining.units.positions", { count: holdings }) },
       { label: t("modules.mining.summary.output"), value: `${totalOutputValue.toLocaleString(undefined, { maximumFractionDigits: 4 })} NETE`, accent: true },
-      { label: t("modules.mining.summary.avgProgress"), value: `${avgProgress}%` },
-      { label: t("modules.mining.summary.avgRemaining"), value: t("modules.mining.units.days", { count: avgRemaining }) },
-      { label: t("modules.mining.summary.airdrop"), value: airdropMachineStatus.permanent ? t("modules.mining.statuses.permanent") : t("modules.mining.statuses.notPermanent") },
     ];
-  }, [airdropMachineStatus.permanent, purchasedMachines, t]);
+  }, [purchasedMachines, t]);
 
   const planStats = useMemo(() => {
     const maxRate = machineModels.reduce((max, item) => Math.max(max, parsePercent(item.returnRate)), 0);
@@ -290,17 +257,8 @@ export default function MiningPage() {
       }),
     [purchasedMachines],
   );
-  const totalPendingRewardWei = useMemo(
-    () => portfolioRows.reduce((sum, item) => sum + (item.pendingWei || 0n), 0n),
-    [portfolioRows],
-  );
-  const expiredMinerCount = useMemo(
-    () => portfolioRows.filter((item) => !item.isAirdrop && item.remainingDays === 0).length,
-    [portfolioRows],
-  );
   const repurchasePaused = Boolean(runtimeConfigQuery.data?.repurchase_paused);
-  const canClaimAll = wallet.isConnected && totalPendingRewardWei > 0n && !claimingAll && !claimingId && !withdrawingId && !repurchasingAll;
-  const canRepurchaseAll = wallet.isConnected && expiredMinerCount > 0 && !repurchasePaused && !claimingAll && !claimingId && !withdrawingId && !repurchasingAll;
+  const canWithdrawAllProfits = wallet.isConnected && profitPoolBalance > 0n && !withdrawingAll && !withdrawingId && !claimingId;
   const canClaimAirdrop = wallet.isConnected && !claimingAirdrop && !hasAirdropMiner && !airdropNftClaimed && hasRequiredAirdropNft;
 
   function openPurchaseModal(model = machineModels[0]) {
@@ -309,16 +267,13 @@ export default function MiningPage() {
     setSelectedModel(model);
     setPurchaseAmount("1");
     setPaymentMethod(PAYMENT_METHODS.principal);
-    setAcceptedAgreement(false);
     setModelPickerOpen(false);
-    setTxMessage("");
   }
 
   function closePurchaseModal() {
     setSelectedModel(null);
     setPurchaseAmount("1");
     setPaymentMethod(PAYMENT_METHODS.principal);
-    setAcceptedAgreement(false);
     setModelPickerOpen(false);
   }
 
@@ -326,10 +281,8 @@ export default function MiningPage() {
     setSelectedModel(null);
     setPurchaseAmount("1");
     setPaymentMethod(PAYMENT_METHODS.principal);
-    setAcceptedAgreement(false);
     setModelPickerOpen(false);
     setAirdropModel(model);
-    setTxMessage("");
   }
 
   function closeAirdropModal() {
@@ -344,44 +297,34 @@ export default function MiningPage() {
     setAgreementOpen(false);
   }
 
-  function openAgreementFromPurchase() {
-    closePurchaseModal();
-    setAgreementOpen(true);
-  }
-
   const paymentBalanceEnough = paymentMethod === PAYMENT_METHODS.wallet
     ? chainNeteBalance >= projectedCostWei
     : principalPoolBalance >= projectedCostWei;
   const quantityWithinLimit = Boolean(selectedModel) && isAmountValid && amountValue <= selectedModel.remaining;
-  const canSubmitPurchase = Boolean(selectedModel) && isAmountValid && quantityWithinLimit && acceptedAgreement && wallet.isConnected && !purchasing && !repurchasePaused && paymentBalanceEnough;
+  const canSubmitPurchase = Boolean(selectedModel) && isAmountValid && quantityWithinLimit && wallet.isConnected && !purchasing && !repurchasePaused && paymentBalanceEnough;
 
   const handlePurchase = async () => {
     if (!canSubmitPurchase || !selectedModel) return;
 
     try {
       setPurchasing(true);
-      setTxMessage("");
       await wallet.ensureCorrectChain();
 
       if (paymentMethod === PAYMENT_METHODS.wallet) {
         await approveNeteToCore(wallet.currentAddress, projectedCostWei);
       }
 
-      let latestHash = "";
       for (let index = 0; index < amountValue; index += 1) {
-        const tx = await activateMiner(wallet.currentAddress, selectedModel.tierIndex);
-        latestHash = tx.hash;
+        await activateMiner(wallet.currentAddress, selectedModel.tierIndex);
       }
 
-      setTxMessage(t("modules.mining.messages.purchaseSuccess", { hash: latestHash }));
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["nete", "mining", wallet.currentAddress] }),
         queryClient.invalidateQueries({ queryKey: ["nete", "balances", wallet.currentAddress] }),
       ]);
       closePurchaseModal();
-    } catch (error) {
-      const message = error instanceof Error ? error.message : t("modules.mining.messages.purchaseFailed");
-      setTxMessage(message);
+    } catch {
+      return;
     } finally {
       setPurchasing(false);
     }
@@ -396,69 +339,44 @@ export default function MiningPage() {
     ]);
   };
 
-  const handleClaimAll = async () => {
+  const handleWithdrawAllProfits = async () => {
     if (!wallet.isConnected) {
-      setTxMessage(t("modules.mining.messages.connectFirst"));
       return;
     }
-    if (totalPendingRewardWei <= 0n) {
-      setTxMessage(t("modules.mining.messages.noPendingReward"));
+    if (profitPoolBalance <= 0n) {
       return;
     }
 
     try {
-      setClaimingAll(true);
-      setTxMessage("");
+      setWithdrawingAll(true);
       await wallet.ensureCorrectChain();
-      const tx = await claimAllRewards(wallet.currentAddress);
-      setTxMessage(t("modules.mining.messages.claimAllSuccess", { hash: tx.hash }));
+      for (const machine of portfolioRows) {
+        if (machine.profitWei <= 0n) continue;
+        await withdrawProfit(wallet.currentAddress, machine.positionId, machine.profitWei);
+      }
       await refreshMiningData();
-    } catch (error) {
-      setTxMessage(toMiningErrorMessage(error, t));
-    } finally {
-      setClaimingAll(false);
-    }
-  };
-
-  const handleRepurchaseExpired = async () => {
-    if (!wallet.isConnected) {
-      setTxMessage(t("modules.mining.messages.connectFirst"));
+    } catch {
       return;
-    }
-    if (expiredMinerCount <= 0) {
-      setTxMessage(t("modules.mining.messages.noExpiredMiners"));
-      return;
-    }
-
-    try {
-      setRepurchasingAll(true);
-      setTxMessage("");
-      await wallet.ensureCorrectChain();
-      const tx = await repurchaseExpiredMiners(wallet.currentAddress);
-      setTxMessage(t("modules.mining.messages.repurchaseSuccess", { hash: tx.hash }));
-      await refreshMiningData();
-    } catch (error) {
-      setTxMessage(toMiningErrorMessage(error, t));
     } finally {
-      setRepurchasingAll(false);
+      setWithdrawingAll(false);
     }
   };
 
   const handleClaim = async (positionId) => {
-    if (!wallet.isConnected || !positionId || claimingId || withdrawingId || claimingAll || repurchasingAll) return;
+    if (!wallet.isConnected || !positionId || claimingId || withdrawingId || withdrawingAll) return;
 
     try {
       setClaimingId(positionId);
-      setTxMessage("");
       await wallet.ensureCorrectChain();
       const machine = portfolioRows.find((item) => item.positionId === positionId);
-      const tx = machine?.isAirdrop
-        ? await claimAirdropReward(wallet.currentAddress, positionId)
-        : await claimReward(wallet.currentAddress, positionId);
-      setTxMessage(t("modules.mining.messages.claimSuccess", { hash: tx.hash }));
+      if (machine?.isAirdrop) {
+        await claimAirdropReward(wallet.currentAddress, positionId);
+      } else {
+        await claimReward(wallet.currentAddress, positionId);
+      }
       await refreshMiningData();
-    } catch (error) {
-      setTxMessage(toMiningErrorMessage(error, t));
+    } catch {
+      return;
     } finally {
       setClaimingId("");
     }
@@ -469,33 +387,28 @@ export default function MiningPage() {
 
     try {
       setClaimingAirdrop(true);
-      setTxMessage("");
       await wallet.ensureCorrectChain();
-      const tx = await claimAndActivateAirdropMiner(wallet.currentAddress);
-      setTxMessage(t("modules.mining.messages.airdropSuccess", { hash: tx.hash }));
+      await claimAndActivateAirdropMiner(wallet.currentAddress);
       await refreshMiningData();
       closeAirdropModal();
       setActiveView("my-miners");
-    } catch (error) {
-      setTxMessage(toMiningErrorMessage(error, t));
+    } catch {
+      return;
     } finally {
       setClaimingAirdrop(false);
     }
   };
 
   const handleWithdraw = async (positionId, amount) => {
-    if (!wallet.isConnected || !positionId || amount <= 0n || withdrawingId || claimingId || claimingAll || repurchasingAll) return;
+    if (!wallet.isConnected || !positionId || amount <= 0n || withdrawingId || claimingId || withdrawingAll) return;
 
     try {
       setWithdrawingId(positionId);
-      setTxMessage("");
       await wallet.ensureCorrectChain();
-      const tx = await withdrawProfit(wallet.currentAddress, positionId, amount);
-      setTxMessage(t("modules.mining.messages.withdrawSuccess", { hash: tx.hash }));
+      await withdrawProfit(wallet.currentAddress, positionId, amount);
       await refreshMiningData();
-    } catch (error) {
-      const message = error instanceof Error ? error.message : t("modules.mining.messages.withdrawFailed");
-      setTxMessage(message);
+    } catch {
+      return;
     } finally {
       setWithdrawingId("");
     }
@@ -519,10 +432,6 @@ export default function MiningPage() {
           </button>
         ))}
       </header>
-
-      {txMessage ? <p className="mt-3 text-xs text-white/75 break-all">{txMessage}</p> : null}
-      {wallet.isConnected ? null : <p className="mining-connect-hint mt-2 text-xs text-white/65">{t("modules.mining.messages.connectFirst")}</p>}
-
       {activeView === "my-miners" ? (
         <div className="mining-view-panel">
           <div className="mining-hero mining-hero--portfolio">
@@ -536,16 +445,6 @@ export default function MiningPage() {
                   <button type="button" className="mining-btn mining-btn--ghost" onClick={openAgreementModal}>{t("modules.mining.portfolio.rulesButton")}</button>
                 </div>
               </div>
-              <aside className="mining-side-card">
-                <p className="mining-eyebrow">ON-CHAIN</p>
-                <h2>{t("modules.mining.portfolio.addressStatus")}</h2>
-                <div className="mining-side-grid">
-                  <div><span>{t("modules.mining.portfolio.walletAddress")}</span><strong>{wallet.shortAddress}</strong></div>
-                  <div><span>{t("modules.mining.portfolio.positionCount")}</span><strong>{t("modules.mining.units.positions", { count: portfolioRows.length })}</strong></div>
-                  <div><span>{t("modules.mining.portfolio.airdropStatus")}</span><strong>{airdropMachineStatus.synthesized ? t("modules.mining.statuses.synthesized") : t("modules.mining.statuses.notSynthesized")}</strong></div>
-                  <div><span>{t("modules.mining.portfolio.networkStatus")}</span><strong>{wallet.isWrongChain ? t("modules.mining.statuses.wrongChain") : t("modules.mining.statuses.normal")}</strong></div>
-                </div>
-              </aside>
             </div>
           </div>
 
@@ -556,31 +455,33 @@ export default function MiningPage() {
                 <p>{t("modules.mining.portfolio.overviewDesc")}</p>
               </div>
             </div>
-            <div className="mining-portfolio-actions">
-              <button
-                className="mining-btn mining-btn--primary"
-                type="button"
-                disabled={!canClaimAll}
-                onClick={handleClaimAll}
-              >
-                {claimingAll ? t("modules.mining.portfolio.claimAlling") : t("modules.mining.portfolio.claimAll")}
-              </button>
-              <button
-                className="mining-btn mining-btn--ghost"
-                type="button"
-                disabled={!canRepurchaseAll}
-                onClick={handleRepurchaseExpired}
-              >
-                {repurchasingAll ? t("modules.mining.portfolio.repurchasing") : t("modules.mining.portfolio.repurchaseAll")}
-              </button>
-            </div>
-            <div className="mining-summary-strip">
+            <div className="mining-summary-strip mining-summary-strip--two">
               {summaryCards.map((card) => (
                 <article key={card.label} className="mining-summary-card">
                   <span>{card.label}</span>
                   <strong className={card.accent ? "is-accent" : ""}>{card.value}</strong>
                 </article>
               ))}
+            </div>
+            <div className="mining-summary-strip mining-summary-strip--two mt-2">
+              <article className="mining-summary-card">
+                <span>{t("modules.mining.modal.principalBalance")}</span>
+                <strong>{formatTokenAmount(principalPoolBalance, 18, 4)} NETE</strong>
+              </article>
+              <article className="mining-summary-card mining-summary-card--with-action">
+                <div>
+                  <span>{t("modules.mining.modal.profitBalance")}</span>
+                  <strong className="is-accent">{formatTokenAmount(profitPoolBalance, 18, 4)} NETE</strong>
+                </div>
+                <button
+                  className="mining-btn mining-btn--inline"
+                  type="button"
+                  disabled={!canWithdrawAllProfits}
+                  onClick={handleWithdrawAllProfits}
+                >
+                  {withdrawingAll ? t("modules.mining.portfolio.withdrawing") : t("modules.mining.portfolio.withdrawToWallet")}
+                </button>
+              </article>
             </div>
           </section>
 
@@ -652,7 +553,7 @@ export default function MiningPage() {
                           <button
                             className="mining-btn mining-btn--inline"
                             type="button"
-                            disabled={claimingId === machine.positionId || !wallet.isConnected || Boolean(withdrawingId) || claimingAll || repurchasingAll}
+                            disabled={claimingId === machine.positionId || !wallet.isConnected || Boolean(withdrawingId) || withdrawingAll}
                             onClick={() => handleClaim(machine.positionId)}
                           >
                             {claimingId === machine.positionId ? t("modules.mining.portfolio.claiming") : t("modules.mining.portfolio.claim")}
@@ -662,7 +563,7 @@ export default function MiningPage() {
                           <button
                             className="mining-btn mining-btn--inline"
                             type="button"
-                            disabled={withdrawingId === machine.positionId || !wallet.isConnected || machine.profitWei <= 0n || Boolean(claimingId) || claimingAll || repurchasingAll}
+                            disabled={withdrawingId === machine.positionId || !wallet.isConnected || machine.profitWei <= 0n || Boolean(claimingId) || withdrawingAll}
                             onClick={() => handleWithdraw(machine.positionId, machine.profitWei)}
                           >
                             {withdrawingId === machine.positionId ? t("modules.mining.portfolio.withdrawing") : t("modules.mining.portfolio.withdraw")}
@@ -875,7 +776,6 @@ export default function MiningPage() {
                               setSelectedModel(model);
                               setPurchaseAmount("1");
                               setPaymentMethod(PAYMENT_METHODS.principal);
-                              setAcceptedAgreement(false);
                               setModelPickerOpen(false);
                             }}
                             role="option"
@@ -896,10 +796,9 @@ export default function MiningPage() {
               </div>
             </div>
 
-            <div className="mt-4">
-              <div className="text-base font-semibold text-white/90">{t("modules.mining.modal.referenceRate")}</div>
-              <div className="mt-1.5 inline-flex items-center rounded-md border border-white/15 bg-white/5 px-2 py-0.5 text-xs font-semibold text-white/85">{t("modules.mining.modal.onchainRules")}</div>
-              <p className="mt-1.5 font-display text-2xl font-black text-[#caff00]">{selectedModel.returnRate}</p>
+            <div className="mt-4 flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2">
+              <span className="text-sm font-semibold text-white/70">{t("modules.mining.modal.referenceRate")}</span>
+              <strong className="font-display text-xl font-black text-[#caff00]">{selectedModel.returnRate}</strong>
             </div>
 
             <div className="mt-5">
@@ -926,14 +825,10 @@ export default function MiningPage() {
             </div>
 
             <section className="mt-4">
-              <div className="grid gap-2 text-xs sm:grid-cols-3">
+              <div className="grid grid-cols-2 gap-2 text-xs">
                 <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
                   <span className="text-white/55">{t("modules.mining.modal.principalBalance")}</span>
                   <strong className="mt-1 block text-white">{formatTokenAmount(principalPoolBalance, 18, 4)} NETE</strong>
-                </div>
-                <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
-                  <span className="text-white/55">{t("modules.mining.modal.profitBalance")}</span>
-                  <strong className="mt-1 block text-white">{formatTokenAmount(profitPoolBalance, 18, 4)} NETE</strong>
                 </div>
                 <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
                   <span className="text-white/55">{t("modules.mining.modal.chainBalance")}</span>
@@ -970,7 +865,7 @@ export default function MiningPage() {
 
             <section className="mt-6">
               <h4 className="text-2xl font-black leading-none text-white">{t("modules.mining.modal.calculator")}</h4>
-              <div className="mt-3 grid gap-2 rounded-2xl border border-white/10 bg-white/[0.02] p-3 text-xs md:grid-cols-2 md:text-sm">
+              <div className="mt-3 grid grid-cols-2 gap-2 rounded-2xl border border-white/10 bg-white/[0.02] p-3 text-xs md:text-sm">
                 <div>
                   <p className="text-white/55">{t("modules.mining.modal.estimatedCost")}</p>
                   <p className="mt-1 text-base font-semibold text-white">{isAmountValid ? `${projectedCost.toLocaleString()} NETE` : "--"}</p>
@@ -983,22 +878,11 @@ export default function MiningPage() {
             </section>
 
             <div className="mt-5 space-y-3">
-              <div className="grid gap-2 rounded-2xl border border-white/10 bg-white/[0.02] p-3 text-xs text-white/75 sm:grid-cols-2 md:text-sm">
-                <p>{t("modules.mining.modal.extend")}：{t("modules.mining.units.days", { count: selectedModel.extendDays })}</p>
+              <div className="grid grid-cols-3 gap-2 rounded-2xl border border-white/10 bg-white/[0.02] p-3 text-xs text-white/75 md:text-sm">
+                <p>{t("modules.mining.modal.singleCycle")}：{t("modules.mining.units.days", { count: selectedModel.periodDays })}</p>
                 <p>{t("modules.mining.modal.maxCycle")}：{t("modules.mining.units.days", { count: selectedModel.maxPeriodDays })}</p>
                 <p>{t("modules.mining.modal.withdrawFee")}：{selectedModel.withdrawFee}%</p>
-                <p>{t("modules.mining.modal.singleCycle")}：{t("modules.mining.units.days", { count: selectedModel.periodDays })}</p>
               </div>
-
-              <label className="flex items-start gap-2 text-xs text-white/70 md:text-sm">
-                <input className="mt-0.5 h-4 w-4 rounded border border-white/30 bg-transparent accent-[#caff00]" type="checkbox" checked={acceptedAgreement} onChange={(event) => setAcceptedAgreement(event.target.checked)} />
-                <span>
-                  {t("modules.mining.modal.agreementPrefix")}
-                  <button className="ml-1 font-semibold text-[#caff00] underline decoration-dotted underline-offset-4" type="button" onClick={openAgreementFromPurchase}>
-                    {t("modules.mining.modal.agreement")}
-                  </button>
-                </span>
-              </label>
             </div>
 
             <button

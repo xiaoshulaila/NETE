@@ -1,4 +1,3 @@
-import { Icon } from "@iconify/react";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import LoadingState from "../../components/common/LoadingState";
@@ -8,21 +7,9 @@ import { getIncomeOverview, getReferralInfo } from "../../services/neteApi";
 import { readNetworkUserData } from "../../services/neteContracts";
 import { formatTokenAmount } from "../../utils/formatters";
 
-const vipBenefits = [
-  { icon: "solar:headphones-round-outline" },
-  { icon: "solar:users-group-two-rounded-outline" },
-  { icon: "solar:gift-outline" },
-  { icon: "solar:document-text-outline" },
-  { icon: "solar:balloon-outline" },
-  { icon: "solar:shield-check-outline" },
-];
-
 export default function VipPage() {
   const { t } = useTranslation();
   const wallet = useWalletConnector();
-  const upgradeNotes = t("modules.vip.upgradeNotes", { returnObjects: true });
-  const glossary = t("modules.vip.glossary", { returnObjects: true });
-  const benefits = t("modules.vip.benefits", { returnObjects: true });
   const levelRequirements = t("modules.vip.levelRequirements", { returnObjects: true });
   const levelBonusRatios = t("modules.vip.levelBonusRatios", { returnObjects: true });
 
@@ -129,46 +116,6 @@ export default function VipPage() {
             ))}
           </div>
         </div>
-      </section>
-
-      <section className="space-y-16 md:space-y-20">
-        <article>
-          <h3 className="mb-8 font-display text-xl font-bold text-white md:text-2xl">{t("modules.vip.upgradeTitle")}</h3>
-          <ul className="list-disc space-y-3 pl-6 text-sm leading-relaxed text-white/65 marker:text-white/65">
-            {upgradeNotes.map((item, index) => (
-              <li key={item}>
-                {item}
-                {index === upgradeNotes.length - 1 ? <span className="ml-2 text-[#caff00] underline decoration-dotted underline-offset-4">{t("modules.vip.submit")}</span> : null}
-              </li>
-            ))}
-          </ul>
-        </article>
-
-        <article>
-          <h3 className="mb-8 font-display text-xl font-bold text-white md:text-2xl">{t("modules.vip.glossaryTitle")}</h3>
-          <ul className="list-disc space-y-3 pl-6 text-sm leading-relaxed text-white/65 marker:text-white/65">
-            {glossary.map((item) => (
-              <li key={item}>{item}</li>
-            ))}
-          </ul>
-        </article>
-
-        <article>
-          <h3 className="mb-8 font-display text-xl font-bold text-white md:text-2xl">{t("modules.vip.benefitsTitle")}</h3>
-          <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-            {vipBenefits.map((item, index) => (
-              <article
-                key={item.icon}
-                className="module-stat-card flex min-h-[70px] items-center gap-4 px-5 py-3 text-sm text-white md:min-h-[70px] md:gap-4 md:px-6 md:py-3 md:text-sm"
-              >
-                <span className="shrink-0 text-[1.4rem] text-white/95 md:text-[1.4rem]" aria-hidden="true">
-                  <Icon icon={item.icon} width="1em" height="1em" />
-                </span>
-                <p className="font-medium tracking-wide text-white/92">{benefits[index]}</p>
-              </article>
-            ))}
-          </div>
-        </article>
       </section>
     </section>
   );

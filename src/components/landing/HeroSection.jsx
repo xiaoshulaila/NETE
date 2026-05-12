@@ -80,8 +80,8 @@ export default function HeroSection() {
                     C2C
                   </div>
                   <div className="phone-illus__module">
-                    <Icon className="phone-illus__module-icon" icon="mdi:star-four-points-outline" />
-                    {t("nav.vip")}
+                    <Icon className="phone-illus__module-icon" icon="mdi:account-circle-outline" />
+                    {t("nav.my")}
                   </div>
                   <div className="phone-illus__module">
                     <Icon className="phone-illus__module-icon" icon="mdi:account-group-outline" />
@@ -147,9 +147,9 @@ export default function HeroSection() {
                   </div>
                   <div className="wallet-asset">
                     <div className="wallet-asset__icon wallet-asset__icon--bnb">
-                      <Icon className="wallet-asset__icon-svg" icon="mdi:star-four-points-outline" />
+                      <Icon className="wallet-asset__icon-svg" icon="mdi:account-circle-outline" />
                     </div>
-                    <div className="wallet-asset__label">{t("nav.vip")}</div>
+                    <div className="wallet-asset__label">{t("nav.my")}</div>
                   </div>
                   <div className="wallet-asset">
                     <div className="wallet-asset__icon wallet-asset__icon--usdt">
@@ -190,10 +190,10 @@ export default function HeroSection() {
                     <Icon className="phone-nav__icon" icon="mdi:swap-horizontal" />
                   </div>
                   <div className="phone-nav__item phone-nav__item--dim">
-                    <Icon className="phone-nav__icon" icon="mdi:star-outline" />
+                    <Icon className="phone-nav__icon" icon="mdi:account-circle-outline" />
                   </div>
                   <div className="phone-nav__item phone-nav__item--dim">
-                    <Icon className="phone-nav__icon" icon="mdi:account-circle-outline" />
+                    <Icon className="phone-nav__icon" icon="mdi:account-group-outline" />
                   </div>
                 </div>
               </div>

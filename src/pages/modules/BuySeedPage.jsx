@@ -2,9 +2,8 @@ import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import LoadingState from "../../components/common/LoadingState";
-import { seedPurchaseRecords } from "../../data/mockData";
 import { useWalletConnector } from "../../hooks/useWalletConnector";
-import { approveUsdtToCore, buySeed, readCoreSeedInfo, readUserBalances } from "../../services/neteContracts";
+import { approveUsdtToCore, buySeed, readCoreSeedInfo, readUserBalances, readUserMiningData } from "../../services/neteContracts";
 import { formatTokenAmount, parseTokenInput } from "../../utils/formatters";
 
 const ONE_18 = 10n ** 18n;
@@ -32,6 +31,14 @@ export default function BuySeedPage() {
     retry: 1,
   });
 
+  const miningDataQuery = useQuery({
+    queryKey: ["nete", "mining", wallet.currentAddress],
+    queryFn: () => readUserMiningData(wallet.currentAddress),
+    enabled: Boolean(wallet.currentAddress),
+    staleTime: 10_000,
+    retry: 1,
+  });
+
   const parsedQuantity = useMemo(() => {
     try {
       return parseTokenInput(quantityInput || "0");
@@ -42,17 +49,19 @@ export default function BuySeedPage() {
 
   const seedPrice = seedInfoQuery.data?.seedPrice ?? 0n;
   const seedRemaining = seedInfoQuery.data?.seedRemaining ?? 0n;
-  const posRemaining = seedInfoQuery.data?.posRemaining ?? 0n;
   const seedPoolInit = seedInfoQuery.data?.seedPoolInit ?? 0n;
   const seedSold = seedInfoQuery.data?.seedSold ?? 0n;
   const usdtBalance = balanceQuery.data?.usdtBalance ?? 0n;
+  const principalPoolBalance = miningDataQuery.data?.repurchaseBalance ?? 0n;
   const seedTotal = seedPoolInit > 0n ? seedPoolInit : seedRemaining + seedSold;
   const soldPercent = seedTotal > 0n ? Math.min(100, Number((seedSold * 10_000n) / seedTotal) / 100) : 0;
   const soldPercentText = `${soldPercent.toFixed(2).replace(/\.00$/, "")}%`;
   const seedPriceText = seedPrice > 0n ? formatTokenAmount(seedPrice, 18, 8) : "--";
   const usdtBalanceText = wallet.isConnected ? `${formatTokenAmount(usdtBalance, 18, 6)} USDT` : t("modules.seed.connectWallet");
+  const principalPoolBalanceText = wallet.isConnected ? `${formatTokenAmount(principalPoolBalance, 18, 4)} NETE` : t("modules.seed.connectWallet");
   const seedInfoLoading = seedInfoQuery.isLoading;
   const balanceLoading = balanceQuery.isLoading;
+  const principalPoolLoading = miningDataQuery.isLoading;
 
   const estimatedUsdt = useMemo(() => {
     if (parsedQuantity <= 0n || seedPrice <= 0n) return 0n;
@@ -85,6 +94,7 @@ export default function BuySeedPage() {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["nete", "seed-info"] }),
         queryClient.invalidateQueries({ queryKey: ["nete", "balances", wallet.currentAddress] }),
+        queryClient.invalidateQueries({ queryKey: ["nete", "mining", wallet.currentAddress] }),
       ]);
     } catch (error) {
       const message = error instanceof Error ? error.message : t("modules.seed.messages.failed");
@@ -158,10 +168,10 @@ export default function BuySeedPage() {
             </div>
             <div className="seed-balance-card">
               <span>{t("modules.seed.principalPoolBalance")}</span>
-              {seedInfoLoading ? (
+              {principalPoolLoading ? (
                 <LoadingState compact />
               ) : (
-                <strong className="seed-mono">{formatTokenAmount(posRemaining, 18, 2)} NETE</strong>
+                <strong className="seed-mono">{principalPoolBalanceText}</strong>
               )}
             </div>
           </div>
@@ -195,37 +205,6 @@ export default function BuySeedPage() {
           </div>
         </section>
 
-        <section className="seed-panel seed-records-panel" aria-label={t("modules.seed.recordsTitle")}>
-          <div className="seed-panel-head">
-            <div>
-              <h2>{t("modules.seed.recordsTitle")}</h2>
-              <p>{t("modules.seed.recordsDesc")}</p>
-            </div>
-          </div>
-          <div className="seed-records-list">
-            {seedPurchaseRecords.map((record, index) => (
-              <article className="seed-record-item" key={`${record.time}-${record.amount}`}>
-                <div className="seed-record-main">
-                  <strong className="seed-mono">S{String(seedPurchaseRecords.length - index).padStart(3, "0")}</strong>
-                  <span>{record.time}</span>
-                </div>
-                <div className="seed-record-values">
-                  <div className="seed-record-cell">
-                    <span>{t("modules.seed.amount")}</span>
-                    <strong className="seed-mono">{record.amount}</strong>
-                  </div>
-                  <div className="seed-record-cell">
-                    <span>{t("modules.seed.paid")}</span>
-                    <strong className="seed-mono">{record.paidUsdt}</strong>
-                  </div>
-                </div>
-                <strong className="seed-status-chip">
-                  {record.status === seedPurchaseRecords[0]?.status ? t("modules.seed.successStatus") : record.status}
-                </strong>
-              </article>
-            ))}
-          </div>
-        </section>
       </div>
       {txMessage ? (
         <div className="seed-toast is-show" role="status" aria-live="polite">

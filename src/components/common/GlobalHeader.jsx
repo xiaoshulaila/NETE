@@ -7,7 +7,6 @@ import { useWalletConnector } from "../../hooks/useWalletConnector";
 const navItems = [
   { key: "home", to: "/" },
   { key: "mining", to: "/mining" },
-  { key: "vip", to: "/vip" },
   { key: "c2c", to: "/c2c" },
   { key: "seed", to: "/finance/buy-seed" },
   { key: "team", to: "/account/team" },

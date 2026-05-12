@@ -5,7 +5,6 @@ import C2CMarketPage from "./pages/modules/C2CMarketPage";
 import MiningPage from "./pages/modules/MiningPage";
 import MyTeamPage from "./pages/modules/MyTeamPage";
 import MyPage from "./pages/modules/MyPage";
-import VipPage from "./pages/modules/VipPage";
 import LandingPage from "./pages/LandingPage";
 
 export default function App() {
@@ -18,8 +17,8 @@ export default function App() {
 
       <Route element={<AppShell />}>
         <Route path="/mining" element={<MiningPage />} />
-        <Route path="/vip" element={<VipPage />} />
-        <Route path="/leadership" element={<Navigate to="/vip" replace />} />
+        <Route path="/vip" element={<Navigate to="/my" replace />} />
+        <Route path="/leadership" element={<Navigate to="/my" replace />} />
         <Route path="/my" element={<MyPage />} />
         <Route path="/account/team" element={<MyTeamPage />} />
         <Route path="/account/my-team" element={<Navigate to="/account/team" replace />} />

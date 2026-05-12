@@ -28,7 +28,6 @@ export default function FooterSection() {
       links: [
         { to: "/mining", label: t("footer.mining") },
         { to: "/c2c/market", label: t("footer.c2cMarket") },
-        { to: "/vip", label: "VIP" },
         { to: "/", label: t("footer.project") },
       ],
     },

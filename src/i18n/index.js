@@ -69,8 +69,8 @@ const resources = {
           secondary: "了解机制细节",
           phone: {
             modulesTitle: "一屏直达\n核心模块",
-            modulesA: "矿机 / C2C / VIP",
-            modulesB: "团队 · 我的",
+            modulesA: "矿机 / C2C / 我的",
+            modulesB: "团队 · 种子",
             account: "我的链上账户",
             totalAsset: "NETE 总资产",
             data: "今日关键数据",
@@ -88,7 +88,7 @@ const resources = {
             quick: "快捷区",
             self: "自选区",
             orders: "订单",
-            vipBoost: "VIP 加速",
+            vipBoost: "业绩权益",
             max: "最高 45%",
             miningIncome: "矿机收益",
             daily: "每日结算",
@@ -101,7 +101,7 @@ const resources = {
           cards: [
             { title: "三重通缩机制", desc: "每次链上提币与激活矿机均触发销毁，结合产出节奏调节阀控制通胀速度，通过机制化收缩推动总量从 30 亿向 2100 万持续收敛。", tag: "30 亿 → 2100 万" },
             { title: "POS 质押销毁挖矿", desc: "约 99.66% 代币通过质押销毁挖矿释放，空投矿机作为转化入口并受有效期与转正规则约束，产出路径清晰且可审计。", tag: "约 29.9 亿 POS 释放" },
-            { title: "社区治理 V1-V9", desc: "提币手续费社区分红中，50% 按等级平分、50% 按当日新增业绩加权，并叠加固定奖励与分享加速机制，形成可持续的增长激励网络。", tag: "双轨分红 + 固定奖励" },
+            { title: "社区治理 V1-V9", desc: "提币手续费社区分红中，50% 按等级平分、50% 按当日新增业绩加权，并叠加固定奖励机制，形成可持续的增长激励网络。", tag: "双轨分红 + 固定奖励" },
             { title: "链上安全与可追溯", desc: "无中心资金池，所有资金锁定在合约与用户钱包；合约自动执行、权限可放弃，交易、分红、销毁全链上公开可查。", tag: "公开透明 · 可验证" }
           ],
         },
@@ -218,8 +218,8 @@ const resources = {
           secondary: "Explore Mechanics",
           phone: {
             modulesTitle: "Core modules\nin one screen",
-            modulesA: "Mining / C2C / VIP",
-            modulesB: "Team · My",
+            modulesA: "Mining / C2C / My",
+            modulesB: "Team · Seed",
             account: "My On-chain Account",
             totalAsset: "Total NETE Assets",
             data: "Key Data Today",
@@ -237,7 +237,7 @@ const resources = {
             quick: "Quick",
             self: "Market",
             orders: "Orders",
-            vipBoost: "VIP Boost",
+            vipBoost: "Performance",
             max: "Up to 45%",
             miningIncome: "Mining Yield",
             daily: "Daily Settlement",
@@ -250,7 +250,7 @@ const resources = {
           cards: [
             { title: "Triple Deflation", desc: "Withdrawals and miner activation both trigger burns. Output pacing controls inflation while supply gradually converges from 3 billion toward 21 million.", tag: "3B → 21M" },
             { title: "POS Stake-Burn Mining", desc: "Roughly 99.66% of tokens are released through stake-burn mining. Airdrop miners serve as the conversion entry with clear validity and promotion rules.", tag: "Approx. 2.99B via POS" },
-            { title: "V1-V9 Community Governance", desc: "Community dividends split by level and daily new performance, then combine with fixed rewards and referral acceleration.", tag: "Dual dividends + rewards" },
+            { title: "V1-V9 Community Governance", desc: "Community dividends split by level and daily new performance, then combine with fixed rewards.", tag: "Dual dividends + rewards" },
             { title: "On-chain Safety and Traceability", desc: "No central fund pool. Funds remain in contracts and user wallets, while trades, dividends, and burns are publicly traceable.", tag: "Transparent · Verifiable" }
           ],
         },

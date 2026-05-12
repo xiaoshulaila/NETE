@@ -2,7 +2,6 @@ import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import LoadingState from "../../components/common/LoadingState";
-import { shareAccelerationRules, teamMembers } from "../../data/mockData";
 import { useWalletConnector } from "../../hooks/useWalletConnector";
 import { getReferralInfo } from "../../services/neteApi";
 import { bindReferrer, readNetworkUserData } from "../../services/neteContracts";
@@ -12,7 +11,6 @@ export default function MyTeamPage() {
   const { t } = useTranslation();
   const wallet = useWalletConnector();
   const queryClient = useQueryClient();
-  const shareLayers = t("modules.team.shareLayers", { returnObjects: true });
 
   const [referrerInput, setReferrerInput] = useState("");
   const [binding, setBinding] = useState(false);
@@ -162,66 +160,6 @@ export default function MyTeamPage() {
             </div>
             {notice ? <p className="mt-2 break-all text-xs text-white/70">{notice}</p> : null}
           </div>
-        </div>
-      </article>
-
-      <article className="module-card p-5">
-        <h2 className="font-display text-base font-bold tracking-wide text-white md:text-xl">{t("modules.team.accelerationTitle")}</h2>
-        <div className="module-table-wrap mt-4">
-          <table className="module-table md:text-sm">
-            <thead>
-              <tr>
-                <th>{t("modules.team.directCount")}</th>
-                <th>{t("modules.team.layerCount")}</th>
-                <th>{t("modules.team.income")}</th>
-                <th>{t("modules.team.note")}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {shareAccelerationRules.map((row, index) => (
-                <tr key={row.directs}>
-                  <td>{row.directs}</td>
-                  <td>{shareLayers[index] || row.layers}</td>
-                  <td>{row.income}</td>
-                  <td>{index === 0 ? t("modules.team.accelerationNote") : t("modules.team.emptyDash")}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </article>
-
-      <article className="module-card p-5">
-        <h2 className="font-display text-base font-bold tracking-wide text-white md:text-xl">{t("modules.team.memberTitle")}</h2>
-        <div className="module-table-wrap mt-4">
-          <table className="module-table md:text-sm">
-            <thead>
-              <tr>
-                <th>{t("modules.team.address")}</th>
-                <th>{t("modules.team.performance")}</th>
-                <th>{t("modules.team.level")}</th>
-                <th>{t("modules.team.joinedAt")}</th>
-                <th>{t("modules.team.directCount")}</th>
-                <th>{t("modules.team.action")}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {teamMembers.map((member) => (
-                <tr key={member.address}>
-                  <td>{member.address}</td>
-                  <td>{member.performance}</td>
-                  <td>{member.level}</td>
-                  <td>{member.joinedAt}</td>
-                  <td>{member.directs}</td>
-                  <td>
-                    <button className="inline-flex min-h-11 items-center justify-center rounded-full border border-white/20 bg-transparent px-5 text-sm font-semibold tracking-wide text-white transition hover:border-white/40 hover:bg-white/5" type="button">
-                      {t("modules.team.viewChildren")}
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
         </div>
       </article>
     </section>

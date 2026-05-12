@@ -33,14 +33,6 @@ export default function LoadingState({ label, description = "", compact = false,
             </div>
           ))}
         </div>
-        <div className="data-loading-list-copy">
-          <span className="data-loading-dot-group" aria-hidden="true">
-            {dots.map((dot) => (
-              <span className="data-loading-dot" key={dot} />
-            ))}
-          </span>
-          <span className="data-loading-label">{loadingLabel}</span>
-        </div>
       </div>
     );
   }
