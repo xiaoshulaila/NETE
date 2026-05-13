@@ -91,6 +91,12 @@ export async function getReferralInfo(user) {
   return request("/v1/referral/info", { query: { user } });
 }
 
+export async function getReferralDirects(user, { page = 1, pageSize = 50 } = {}) {
+  return request("/v1/referral/directs", {
+    query: { user, page, page_size: pageSize },
+  });
+}
+
 export async function getIncomeOverview(user) {
   return request("/v1/income/overview", { query: { user } });
 }

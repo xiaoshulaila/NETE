@@ -11,11 +11,13 @@ import {
   activateMiner,
   approveNeteToCore,
   claimAndActivateAirdropMiner,
+  claimAllRewards,
   claimAirdropReward,
   claimReward,
   readTierConfigs,
   readUserBalances,
   readUserMiningData,
+  repurchaseExpiredMiners,
   withdrawProfit,
 } from "../../services/neteContracts";
 import { formatTokenAmount } from "../../utils/formatters";
@@ -33,7 +35,11 @@ const PAYMENT_METHODS = {
 const AIRDROP_PRINCIPAL = 100n * 10n ** 18n;
 
 function isAirdropTier(tier) {
-  return tier.principal === AIRDROP_PRINCIPAL && Number(tier.returnBps || 0) === 0;
+  return tier.principal === AIRDROP_PRINCIPAL && (
+    Number(tier.returnBps || 0) === 0 ||
+    Number(tier.cycleDays || 0) === 75 ||
+    Number(tier.maxDays || 0) === 75
+  );
 }
 
 function parsePercent(rateText) {
@@ -63,8 +69,9 @@ export default function MiningPage() {
   const [modelPickerOpen, setModelPickerOpen] = useState(false);
   const [purchasing, setPurchasing] = useState(false);
   const [claimingAirdrop, setClaimingAirdrop] = useState(false);
+  const [claimingAll, setClaimingAll] = useState(false);
+  const [repurchasingAll, setRepurchasingAll] = useState(false);
   const [claimingId, setClaimingId] = useState("");
-  const [withdrawingId, setWithdrawingId] = useState("");
   const [withdrawingAll, setWithdrawingAll] = useState(false);
 
   const tiersQuery = useQuery({
@@ -124,7 +131,7 @@ export default function MiningPage() {
           principalWei: tier.principal,
           unitCount: tier.maxSlots,
           periodDays: tier.cycleDays,
-          returnRate: tier.returnRateText,
+          returnRate: isAirdrop ? "120%" : tier.returnRateText,
           maxPeriodDays: tier.maxDays,
           withdrawFee: Number((tier.feeBps / 100).toFixed(2)),
           remaining: Math.max(tier.maxSlots - ownedCount, 0),
@@ -184,12 +191,15 @@ export default function MiningPage() {
     [miningDataQuery.data?.positions],
   );
   const chainNeteBalance = balancesQuery.data?.neteBalance ?? 0n;
-  const fragmentBalance = miningDataQuery.data?.fragmentBalance ?? 0n;
-  const airdropRemaining = miningDataQuery.data?.airdropRemaining ?? 0n;
   const hasAirdropMiner = Boolean(miningDataQuery.data?.airdropInfo?.composed);
   const airdropEligibility = miningDataQuery.data?.airdropEligibility || {};
   const hasRequiredAirdropNft = airdropEligibility.hasRequiredNft ?? true;
   const airdropNftClaimed = Boolean(airdropEligibility.nftClaimed);
+  const airdropHidden = hasAirdropMiner || airdropNftClaimed;
+  const visibleMachineModels = useMemo(
+    () => machineModels.filter((model) => !model.isAirdrop || !airdropHidden),
+    [airdropHidden, machineModels],
+  );
 
   const projectedCost = useMemo(() => {
     if (!selectedModel || !isAmountValid) return 0;
@@ -220,16 +230,16 @@ export default function MiningPage() {
   }, [purchasedMachines, t]);
 
   const planStats = useMemo(() => {
-    const maxRate = machineModels.reduce((max, item) => Math.max(max, parsePercent(item.returnRate)), 0);
-    const minDays = machineModels.reduce((min, item) => Math.min(min, item.periodDays), Number.POSITIVE_INFINITY);
-    const maxDays = machineModels.reduce((max, item) => Math.max(max, item.periodDays), 0);
+    const maxRate = visibleMachineModels.reduce((max, item) => Math.max(max, parsePercent(item.returnRate)), 0);
+    const minDays = visibleMachineModels.reduce((min, item) => Math.min(min, item.periodDays), Number.POSITIVE_INFINITY);
+    const maxDays = visibleMachineModels.reduce((max, item) => Math.max(max, item.periodDays), 0);
 
     return {
-      modelCount: machineModels.length,
+      modelCount: visibleMachineModels.length,
       maxRate,
-      cycleRange: machineModels.length ? t("modules.mining.units.cycleRange", { min: minDays, max: maxDays }) : "--",
+      cycleRange: visibleMachineModels.length ? t("modules.mining.units.cycleRange", { min: minDays, max: maxDays }) : "--",
     };
-  }, [machineModels, t]);
+  }, [visibleMachineModels, t]);
 
   const miningConfigMessage = useMemo(() => {
     const missingKeys = getContractConfigMissingKeys(MINING_CONTRACT_KEYS);
@@ -258,7 +268,18 @@ export default function MiningPage() {
     [purchasedMachines],
   );
   const repurchasePaused = Boolean(runtimeConfigQuery.data?.repurchase_paused);
-  const canWithdrawAllProfits = wallet.isConnected && profitPoolBalance > 0n && !withdrawingAll && !withdrawingId && !claimingId;
+  const totalPendingRewardWei = useMemo(
+    () => portfolioRows.reduce((sum, item) => sum + (item.pendingWei || 0n), 0n),
+    [portfolioRows],
+  );
+  const expiredMinerCount = useMemo(
+    () => portfolioRows.filter((item) => !item.isAirdrop && item.remainingDays <= 0).length,
+    [portfolioRows],
+  );
+  const actionBusy = claimingAll || repurchasingAll || withdrawingAll || Boolean(claimingId);
+  const canClaimAllRewards = wallet.isConnected && totalPendingRewardWei > 0n && !actionBusy;
+  const canRepurchaseExpired = wallet.isConnected && expiredMinerCount > 0 && !repurchasePaused && !actionBusy;
+  const canWithdrawAllProfits = wallet.isConnected && profitPoolBalance > 0n && !actionBusy;
   const canClaimAirdrop = wallet.isConnected && !claimingAirdrop && !hasAirdropMiner && !airdropNftClaimed && hasRequiredAirdropNft;
 
   function openPurchaseModal(model = machineModels[0]) {
@@ -339,6 +360,36 @@ export default function MiningPage() {
     ]);
   };
 
+  const handleClaimAll = async () => {
+    if (!canClaimAllRewards) return;
+
+    try {
+      setClaimingAll(true);
+      await wallet.ensureCorrectChain();
+      await claimAllRewards(wallet.currentAddress);
+      await refreshMiningData();
+    } catch {
+      return;
+    } finally {
+      setClaimingAll(false);
+    }
+  };
+
+  const handleRepurchaseExpired = async () => {
+    if (!canRepurchaseExpired) return;
+
+    try {
+      setRepurchasingAll(true);
+      await wallet.ensureCorrectChain();
+      await repurchaseExpiredMiners(wallet.currentAddress);
+      await refreshMiningData();
+    } catch {
+      return;
+    } finally {
+      setRepurchasingAll(false);
+    }
+  };
+
   const handleWithdrawAllProfits = async () => {
     if (!wallet.isConnected) {
       return;
@@ -363,7 +414,7 @@ export default function MiningPage() {
   };
 
   const handleClaim = async (positionId) => {
-    if (!wallet.isConnected || !positionId || claimingId || withdrawingId || withdrawingAll) return;
+    if (!wallet.isConnected || !positionId || actionBusy) return;
 
     try {
       setClaimingId(positionId);
@@ -396,21 +447,6 @@ export default function MiningPage() {
       return;
     } finally {
       setClaimingAirdrop(false);
-    }
-  };
-
-  const handleWithdraw = async (positionId, amount) => {
-    if (!wallet.isConnected || !positionId || amount <= 0n || withdrawingId || claimingId || withdrawingAll) return;
-
-    try {
-      setWithdrawingId(positionId);
-      await wallet.ensureCorrectChain();
-      await withdrawProfit(wallet.currentAddress, positionId, amount);
-      await refreshMiningData();
-    } catch {
-      return;
-    } finally {
-      setWithdrawingId("");
     }
   };
 
@@ -468,20 +504,38 @@ export default function MiningPage() {
                 <span>{t("modules.mining.modal.principalBalance")}</span>
                 <strong>{formatTokenAmount(principalPoolBalance, 18, 4)} NETE</strong>
               </article>
-              <article className="mining-summary-card mining-summary-card--with-action">
+              <article className="mining-summary-card">
                 <div>
                   <span>{t("modules.mining.modal.profitBalance")}</span>
                   <strong className="is-accent">{formatTokenAmount(profitPoolBalance, 18, 4)} NETE</strong>
                 </div>
-                <button
-                  className="mining-btn mining-btn--inline"
-                  type="button"
-                  disabled={!canWithdrawAllProfits}
-                  onClick={handleWithdrawAllProfits}
-                >
-                  {withdrawingAll ? t("modules.mining.portfolio.withdrawing") : t("modules.mining.portfolio.withdrawToWallet")}
-                </button>
               </article>
+            </div>
+            <div className="mining-portfolio-actions">
+              <button
+                className="mining-btn mining-btn--primary"
+                type="button"
+                disabled={!canClaimAllRewards}
+                onClick={handleClaimAll}
+              >
+                {claimingAll ? t("modules.mining.portfolio.claimAlling") : t("modules.mining.portfolio.claimAll")}
+              </button>
+              <button
+                className="mining-btn mining-btn--ghost"
+                type="button"
+                disabled={!canRepurchaseExpired}
+                onClick={handleRepurchaseExpired}
+              >
+                {repurchasingAll ? t("modules.mining.portfolio.repurchasing") : t("modules.mining.portfolio.repurchaseAll")}
+              </button>
+              <button
+                className="mining-btn mining-btn--inline"
+                type="button"
+                disabled={!canWithdrawAllProfits}
+                onClick={handleWithdrawAllProfits}
+              >
+                {withdrawingAll ? t("modules.mining.portfolio.withdrawing") : t("modules.mining.portfolio.withdrawToWallet")}
+              </button>
             </div>
           </section>
 
@@ -509,7 +563,11 @@ export default function MiningPage() {
                         <div>
                           <div className="mining-portfolio-item__title">
                             <h4>{machine.model}</h4>
-                            {machine.isAirdrop ? <span className="mining-chip mining-chip--airdrop">{t("modules.mining.buy.airdropBadge")}</span> : null}
+                            {machine.isAirdrop ? (
+                              <span className="mining-chip mining-chip--airdrop">
+                                {machine.isAirdrop && airdropMachineStatus.permanent ? t("modules.mining.buy.airdropPermanentBadge") : t("modules.mining.buy.airdropBadge")}
+                              </span>
+                            ) : null}
                           </div>
                         </div>
                         <span className="mining-chip mining-chip--status">{t("modules.mining.statuses.running")}</span>
@@ -523,10 +581,6 @@ export default function MiningPage() {
                         <div className="mining-reward-card">
                           <span>{t("modules.mining.portfolio.produced")}</span>
                           <strong>{machine.output}</strong>
-                        </div>
-                        <div className="mining-reward-card">
-                          <span>{t("modules.mining.portfolio.profit")}</span>
-                          <strong>{machine.profit}</strong>
                         </div>
                       </div>
 
@@ -553,20 +607,10 @@ export default function MiningPage() {
                           <button
                             className="mining-btn mining-btn--inline"
                             type="button"
-                            disabled={claimingId === machine.positionId || !wallet.isConnected || Boolean(withdrawingId) || withdrawingAll}
+                            disabled={claimingId === machine.positionId || !wallet.isConnected || actionBusy}
                             onClick={() => handleClaim(machine.positionId)}
                           >
                             {claimingId === machine.positionId ? t("modules.mining.portfolio.claiming") : t("modules.mining.portfolio.claim")}
-                          </button>
-                        </div>
-                        <div className="mining-info-tile mining-info-tile--action">
-                          <button
-                            className="mining-btn mining-btn--inline"
-                            type="button"
-                            disabled={withdrawingId === machine.positionId || !wallet.isConnected || machine.profitWei <= 0n || Boolean(claimingId) || withdrawingAll}
-                            onClick={() => handleWithdraw(machine.positionId, machine.profitWei)}
-                          >
-                            {withdrawingId === machine.positionId ? t("modules.mining.portfolio.withdrawing") : t("modules.mining.portfolio.withdraw")}
                           </button>
                         </div>
                       </div>
@@ -611,7 +655,7 @@ export default function MiningPage() {
                   <article className="mining-plan-item mining-loading-card">
                     <LoadingState variant="list" rows={3} cells={3} />
                   </article>
-                ) : tiersQuery.isError || machineModels.length === 0 ? (
+                ) : tiersQuery.isError || visibleMachineModels.length === 0 ? (
                   <article className="mining-plan-item">
                     <div>
                       <h4>{tiersQuery.isError ? t("modules.mining.buy.loadFailedTitle") : t("modules.mining.buy.emptyTitle")}</h4>
@@ -619,13 +663,13 @@ export default function MiningPage() {
                     </div>
                   </article>
                 ) : (
-                  machineModels.map((model) => (
+                  visibleMachineModels.map((model) => (
                     <article key={model.tierIndex} className={model.isAirdrop ? "mining-plan-item mining-plan-item--airdrop" : "mining-plan-item"}>
                       <div>
                         <h4>{model.model}</h4>
                         <p>{model.price} NETE</p>
                       </div>
-                      {model.badge ? <span className="mining-plan-badge">{model.badge}</span> : null}
+                      {model.badge ? <span className="mining-plan-badge">{model.isAirdrop && airdropMachineStatus.permanent ? t("modules.mining.buy.airdropPermanentBadge") : model.badge}</span> : null}
 
                       <div className="mining-plan-grid">
                         <div className="mining-info-tile"><span>{t("modules.mining.buy.totalRate")}</span><strong className="is-accent">{model.returnRate}</strong></div>
@@ -642,9 +686,7 @@ export default function MiningPage() {
                           disabled={!model.isAirdrop && (repurchasePaused || model.remaining <= 0)}
                         >
                           {model.isAirdrop
-                            ? hasAirdropMiner
-                              ? t("modules.mining.buy.airdropActivated")
-                              : t("modules.mining.buy.airdropAction")
+                            ? t("modules.mining.buy.airdropAction")
                             : t("modules.mining.buy.actionValue")}
                         </button>
                       </div>
@@ -909,7 +951,9 @@ export default function MiningPage() {
           >
             <div className="flex items-start justify-between gap-3">
               <div>
-                <span className="mining-chip mining-chip--airdrop">{t("modules.mining.buy.airdropBadge")}</span>
+                <span className="mining-chip mining-chip--airdrop">
+                  {airdropMachineStatus.permanent ? t("modules.mining.buy.airdropPermanentBadge") : t("modules.mining.buy.airdropBadge")}
+                </span>
                 <h3 className="mt-3 font-display text-xl font-bold tracking-tight text-white">{airdropModel.model}</h3>
                 <p className="mt-1 text-xs leading-6 text-white/65">{t("modules.mining.modal.airdropDesc")}</p>
               </div>
@@ -919,14 +963,6 @@ export default function MiningPage() {
             </div>
 
             <div className="mt-4 grid grid-cols-2 gap-2 text-xs">
-              <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
-                <span className="text-white/55">{t("modules.mining.modal.fragmentBalance")}</span>
-                <strong className="mt-1 block text-white">{fragmentBalance.toString()}</strong>
-              </div>
-              <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
-                <span className="text-white/55">{t("modules.mining.modal.airdropRemaining")}</span>
-                <strong className="mt-1 block text-white">{airdropRemaining.toString()}</strong>
-              </div>
               <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
                 <span className="text-white/55">{t("modules.mining.buy.totalRate")}</span>
                 <strong className="mt-1 block text-[#caff00]">{airdropModel.returnRate}</strong>

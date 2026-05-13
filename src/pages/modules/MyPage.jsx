@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import LoadingState from "../../components/common/LoadingState";
 import { useWalletConnector } from "../../hooks/useWalletConnector";
 import { getClaimMessage, getIncomeLedger, getIncomeOverview, getReferralInfo } from "../../services/neteApi";
-import { claimWithSignature, readNetworkUserData, readTokenMetrics, readUserBalances } from "../../services/neteContracts";
+import { claimWithSignature, readNetworkUserData, readUserBalances, readUserMiningData } from "../../services/neteContracts";
 import { formatTokenAmount, formatUnixTime, shortAddress } from "../../utils/formatters";
 
 function toItems(payload) {
@@ -40,18 +40,13 @@ function normalizeLedgerRow(row, index) {
   };
 }
 
-const claimActions = [
-  { key: "referral", labelKey: "modules.my.claimActions.referral" },
-  { key: "dividend", labelKey: "modules.my.claimActions.dividend" },
-  { key: "v9", labelKey: "modules.my.claimActions.v9" },
-];
-
 export default function MyPage() {
   const { t } = useTranslation();
   const wallet = useWalletConnector();
   const queryClient = useQueryClient();
   const [claimingType, setClaimingType] = useState("");
   const [notice, setNotice] = useState("");
+  const [copyNotice, setCopyNotice] = useState("");
   const [lastClaimInfo, setLastClaimInfo] = useState(null);
 
   const incomeOverviewQuery = useQuery({
@@ -94,10 +89,11 @@ export default function MyPage() {
     retry: 1,
   });
 
-  const tokenMetricsQuery = useQuery({
-    queryKey: ["nete", "token-metrics"],
-    queryFn: readTokenMetrics,
-    staleTime: 20_000,
+  const miningDataQuery = useQuery({
+    queryKey: ["nete", "mining", wallet.currentAddress],
+    queryFn: () => readUserMiningData(wallet.currentAddress),
+    enabled: Boolean(wallet.currentAddress),
+    staleTime: 10_000,
     retry: 1,
   });
 
@@ -106,31 +102,58 @@ export default function MyPage() {
     [incomeLedgerQuery.data],
   );
 
-  const summaryItems = useMemo(() => {
-    const overview = incomeOverviewQuery.data || {};
-    const referral = referralInfoQuery.data || {};
-    const balances = balancesQuery.data || {};
-    const tokenMetrics = tokenMetricsQuery.data || {};
-    const network = networkDataQuery.data || {};
+  const overview = incomeOverviewQuery.data || {};
+  const referral = referralInfoQuery.data || {};
+  const balances = balancesQuery.data || {};
+  const network = networkDataQuery.data || {};
+  const miningData = miningDataQuery.data || {};
+  const currentLevel = overview.user_level ?? network.userLevel ?? 0;
+  const totalDividend = toBigIntSafe(overview.dividend_income_total) + toBigIntSafe(overview.v9_income_total);
+  const profitPoolBalance = useMemo(
+    () => (miningData.positions || []).reduce((sum, position) => sum + (position.profit || 0n), 0n),
+    [miningData.positions],
+  );
+  const inviteLink = useMemo(() => {
+    if (!wallet.currentAddress) return "--";
+    const origin = typeof window === "undefined" ? "" : window.location.origin;
+    return `${origin || "https://nete.io"}/?ref=${wallet.currentAddress}`;
+  }, [wallet.currentAddress]);
+
+  const assetRows = useMemo(() => {
+    const neteBalance = balances.neteBalance ?? 0n;
+    const principalPool = miningData.repurchaseBalance ?? 0n;
 
     return [
-      { label: t("modules.my.summary.wallet"), value: wallet.isConnected ? shortAddress(wallet.currentAddress) : t("modules.my.disconnected") },
-      { label: t("modules.my.summary.level"), value: `V${overview.user_level ?? network.userLevel ?? 0}` },
-      { label: t("modules.my.summary.zonePerformance"), value: `${formatTokenAmount(referral.small_leg_perf ?? 0n, 18, 2)} NETE` },
-      { label: t("modules.my.summary.nete"), value: `${formatTokenAmount(balances.neteBalance ?? 0n, 18, 4)} NETE` },
-      { label: t("modules.my.summary.usdt"), value: `${formatTokenAmount(balances.usdtBalance ?? 0n, 18, 4)} USDT` },
-      { label: t("modules.my.summary.referral"), value: `${formatTokenAmount(overview.pending_referral ?? 0n, 18, 4)} NETE` },
-      { label: t("modules.my.summary.dividend"), value: `${formatTokenAmount(overview.pending_dividend ?? 0n, 18, 4)} NETE` },
-      { label: t("modules.my.summary.v9"), value: `${formatTokenAmount(overview.pending_v9 ?? 0n, 18, 4)} NETE` },
-      { label: t("modules.my.summary.totalDividend"), value: `${formatTokenAmount(overview.dividend_income_total ?? 0n, 18, 4)} NETE` },
-      { label: t("modules.my.summary.totalV9"), value: `${formatTokenAmount(overview.v9_income_total ?? 0n, 18, 4)} NETE` },
-      { label: t("modules.my.summary.directs"), value: `${referral.direct_count ?? 0}` },
-      { label: t("modules.my.summary.team"), value: `${formatTokenAmount(referral.subtree_perf ?? 0n, 18, 2)} NETE` },
-      { label: t("modules.my.summary.circulating"), value: `${formatTokenAmount(tokenMetrics.circulatingSupply ?? 0n, tokenMetrics.decimals ?? 18, 2)} NETE` },
+      [
+        { label: t("modules.my.summary.nete"), value: formatTokenAmount(neteBalance, 18, 4), unit: "NETE", asset: true },
+        { label: t("modules.my.summary.principalPool"), value: formatTokenAmount(principalPool, 18, 4), unit: "NETE", asset: true },
+        { label: t("modules.my.summary.profitPool"), value: formatTokenAmount(profitPoolBalance, 18, 4), unit: "NETE", asset: true },
+      ],
+      [
+        { label: t("modules.my.summary.ownPerformance"), value: formatTokenAmount(referral.own_perf ?? 0n, 18, 2), unit: "NETE" },
+        { label: t("modules.my.summary.team"), value: formatTokenAmount(referral.subtree_perf ?? 0n, 18, 2), unit: "NETE" },
+        { label: t("modules.my.summary.zonePerformance"), value: formatTokenAmount(referral.small_leg_perf ?? 0n, 18, 2), unit: "NETE" },
+      ],
     ];
-  }, [balancesQuery.data, incomeOverviewQuery.data, networkDataQuery.data, referralInfoQuery.data, t, tokenMetricsQuery.data, wallet.currentAddress, wallet.isConnected]);
+  }, [balances.neteBalance, miningData.repurchaseBalance, profitPoolBalance, referral.own_perf, referral.small_leg_perf, referral.subtree_perf, t]);
 
-  const loading = incomeOverviewQuery.isLoading || referralInfoQuery.isLoading || balancesQuery.isLoading;
+  const claimRows = useMemo(() => [
+    { key: "referral", label: t("modules.my.summary.referral"), amount: overview.pending_referral ?? 0n, labelKey: "modules.my.claimActions.referral" },
+    { key: "dividend", label: t("modules.my.summary.dividend"), amount: overview.pending_dividend ?? 0n, labelKey: "modules.my.claimActions.dividend" },
+    { key: "v9", label: t("modules.my.summary.v9"), amount: overview.pending_v9 ?? 0n, labelKey: "modules.my.claimActions.v9" },
+  ], [overview.pending_dividend, overview.pending_referral, overview.pending_v9, t]);
+
+  const loading = incomeOverviewQuery.isLoading || referralInfoQuery.isLoading || balancesQuery.isLoading || miningDataQuery.isLoading;
+
+  const copyInviteLink = async () => {
+    if (!wallet.currentAddress || inviteLink === "--") return;
+    try {
+      await navigator.clipboard.writeText(inviteLink);
+      setCopyNotice(t("modules.my.messages.copied"));
+    } catch {
+      setCopyNotice(inviteLink);
+    }
+  };
 
   const handleClaim = async (type) => {
     if (!wallet.isConnected) {
@@ -141,6 +164,7 @@ export default function MyPage() {
     try {
       setClaimingType(type);
       setNotice("");
+      setCopyNotice("");
       await wallet.ensureCorrectChain();
 
       const claimMessage = await getClaimMessage(type, { user: wallet.currentAddress });
@@ -170,101 +194,129 @@ export default function MyPage() {
   };
 
   return (
-    <section className="module-page space-y-6">
-      <header className="module-hero">
-        <div className="grid gap-6 md:grid-cols-[1fr_auto] md:items-center">
-          <div className="max-w-3xl">
-            <p className="module-eyebrow">NETE ACCOUNT</p>
-            <h1 className="font-display text-2xl font-black tracking-tight text-white md:text-3xl">{t("modules.my.title")}</h1>
-            <p className="mt-3 max-w-2xl text-sm text-white/80">{t("modules.my.desc")}</p>
+    <section className="module-page my-account-page">
+      <header className="my-account-hero">
+        <div className="my-account-hero__inner">
+          <p className="module-eyebrow">NETE ACCOUNT</p>
+          <h1>{t("modules.my.accountTitle")}</h1>
+          <p className="my-account-hero__copy">{t("modules.my.desc")}</p>
+
+          <div className="my-account-row" aria-label={t("modules.my.accountInfo")}>
+            <article className="my-account-chip">
+              <span className="my-account-label">{t("modules.my.summary.wallet")}</span>
+              <strong>{wallet.isConnected ? shortAddress(wallet.currentAddress) : t("modules.my.disconnected")}</strong>
+            </article>
+            <article className="my-account-chip my-account-chip--vip">
+              <span className="my-account-label">{t("modules.my.summary.level")}</span>
+              <strong>V{currentLevel}</strong>
+            </article>
           </div>
         </div>
       </header>
 
-      {!wallet.isConnected ? <p className="text-xs text-white/70">{t("modules.my.connectHint")}</p> : null}
+      {!wallet.isConnected ? <p className="my-account-hint">{t("modules.my.connectHint")}</p> : null}
 
-      <article className="module-card p-5">
-        <h2 className="mb-4 font-display text-base font-bold tracking-wide text-white md:text-xl">{t("modules.my.overview")}</h2>
-        {loading ? (
-          <LoadingState className="module-loading-card" />
-        ) : (
-          <div className="grid grid-cols-2 gap-3">
-            {summaryItems.map((item) => (
-              <article key={item.label} className="module-stat-card p-4">
-                <div className="text-xs uppercase tracking-[0.12em] text-white/55">{item.label}</div>
-                <div className="mt-2 font-display text-base font-bold text-[#caff00] md:text-lg">{item.value}</div>
-              </article>
+      <section className="my-account-panel my-invite-panel" aria-label={t("modules.my.inviteTitle")}>
+        <div>
+          <span className="my-account-label">{t("modules.my.inviteTitle")}</span>
+          <span className="my-invite-link">{inviteLink}</span>
+        </div>
+        <button className="my-copy-button" type="button" disabled={!wallet.currentAddress} onClick={copyInviteLink}>
+          {t("modules.my.copy")}
+        </button>
+      </section>
+      {copyNotice ? <p className="my-account-note my-account-note--flush">{copyNotice}</p> : null}
+
+      <section className="my-account-panel">
+        <div className="my-section-head">
+          <h2>{t("modules.my.overview")}</h2>
+          <span>{t("modules.my.assetTag")}</span>
+        </div>
+
+        {loading ? <LoadingState className="module-loading-card" /> : (
+          <div className="my-metric-board">
+            {assetRows.map((row, rowIndex) => (
+              <div className="my-metric-row" key={rowIndex}>
+                {row.map((item) => (
+                  <article className={item.asset ? "my-metric-card my-metric-card--asset" : "my-metric-card"} key={item.label}>
+                    <span className="my-account-label">{item.label}</span>
+                    <strong>
+                      {item.value}
+                      <small>{item.unit}</small>
+                    </strong>
+                  </article>
+                ))}
+              </div>
             ))}
+
+            <article className="my-dividend-card">
+              <span className="my-account-label">{t("modules.my.summary.totalDividend")}</span>
+              <strong>{formatTokenAmount(totalDividend, 18, 4)} NETE</strong>
+            </article>
           </div>
         )}
-      </article>
+      </section>
 
-      <article className="module-card p-5">
-        <h2 className="font-display text-base font-bold tracking-wide text-white md:text-xl">{t("modules.my.claimTitle")}</h2>
-        <div className="mt-4 flex flex-wrap gap-3">
-          {claimActions.map((action) => (
-            <button
-              key={action.key}
-              className="inline-flex min-h-11 items-center justify-center rounded-full bg-[#caff00] px-5 text-sm font-semibold tracking-wide text-black transition enabled:hover:shadow-[0_0_30px_rgba(202,255,0,0.45)] disabled:cursor-not-allowed disabled:opacity-45"
-              type="button"
-              disabled={claimingType === action.key || Boolean(claimingType) || !wallet.isConnected}
-              onClick={() => handleClaim(action.key)}
-            >
-              {claimingType === action.key ? t("modules.my.processing") : t(action.labelKey)}
-            </button>
+      <section className="my-account-panel">
+        <div className="my-section-head">
+          <h2>{t("modules.my.pendingRewards")}</h2>
+          <span>{t("modules.my.rewardCount", { count: claimRows.length })}</span>
+        </div>
+
+        <div className="my-claim-list">
+          {claimRows.map((row) => (
+            <div className="my-claim-row" key={row.key}>
+              <span className="my-account-label">{row.label}</span>
+              <strong>{formatTokenAmount(row.amount, 18, 4)} NETE</strong>
+              <button
+                type="button"
+                disabled={claimingType === row.key || Boolean(claimingType) || !wallet.isConnected}
+                onClick={() => handleClaim(row.key)}
+                aria-label={t(row.labelKey)}
+              >
+                {claimingType === row.key ? t("modules.my.processing") : t("modules.my.claim")}
+              </button>
+            </div>
           ))}
         </div>
+
         {lastClaimInfo ? (
-          <p className="mt-3 text-xs text-white/70">
+          <p className="my-account-note">
             {t("modules.my.lastClaim", { type: lastClaimInfo.type, amount: formatTokenAmount(lastClaimInfo.amount ?? 0n, 18, 4), deadline: formatUnixTime(lastClaimInfo.deadline) })}
           </p>
         ) : null}
-        {notice ? <p className="mt-3 break-all text-xs text-white/75">{notice}</p> : null}
-      </article>
+        {notice ? <p className="my-account-note">{notice}</p> : null}
+      </section>
 
-      <article className="module-card p-5">
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-          <h2 className="font-display text-base font-bold tracking-wide text-white md:text-xl">{t("modules.my.ledgerTitle")}</h2>
-          <span className="text-xs text-white/50">{t("modules.my.recentCount", { count: ledgerRows.length })}</span>
+      <section className="my-account-panel my-history-panel">
+        <div className="my-section-head">
+          <h2>{t("modules.my.detailTitle")}</h2>
+          <span>{t("modules.my.listTag")}</span>
         </div>
 
-        <div className="module-table-wrap">
-          <table className="module-table md:text-sm">
-            <thead>
-              <tr>
-                <th>{t("modules.my.time")}</th>
-                <th>{t("modules.my.type")}</th>
-                <th>{t("modules.my.amount")}</th>
-                <th>{t("modules.my.balance")}</th>
-                <th>{t("modules.my.txHash")}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {incomeLedgerQuery.isLoading ? (
-                <tr className="module-loading-row">
-                  <td colSpan={5}>
-                    <LoadingState variant="list" rows={4} cells={5} />
-                  </td>
-                </tr>
-              ) : ledgerRows.length === 0 ? (
-                <tr>
-                  <td colSpan={5} className="text-center text-white/65">{t("modules.my.emptyLedger")}</td>
-                </tr>
-              ) : (
-                ledgerRows.map((row) => (
-                  <tr key={row.id}>
-                    <td>{row.createdAt ? formatUnixTime(row.createdAt) : "--"}</td>
-                    <td>{row.type}</td>
-                    <td className={row.amountText.startsWith("-") ? "text-rose-300" : "text-emerald-300"}>{row.amountText}</td>
-                    <td>{row.balanceText}</td>
-                    <td className="font-mono text-xs text-[#caff00]">{row.txHash}</td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+        <div className="my-history-list">
+          <div className="my-detail-list">
+            <div className="my-detail-head">
+              <span>{t("modules.my.type")}</span>
+              <span>{t("modules.my.amount")}</span>
+              <span>{t("modules.my.claimTime")}</span>
+            </div>
+            {incomeLedgerQuery.isLoading ? (
+              <LoadingState variant="list" rows={4} cells={3} />
+            ) : ledgerRows.length === 0 ? (
+              <div className="my-empty-state">{t("modules.my.emptyLedger")}</div>
+            ) : (
+              ledgerRows.map((row) => (
+                <div className="my-detail-row" key={row.id}>
+                  <span className="my-type-badge">{row.type}</span>
+                  <strong className={row.amountText.startsWith("-") ? "is-negative" : ""}>{row.amountText}</strong>
+                  <span>{row.createdAt ? formatUnixTime(row.createdAt) : "--"}</span>
+                </div>
+              ))
+            )}
+          </div>
         </div>
-      </article>
+      </section>
     </section>
   );
 }
