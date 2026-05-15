@@ -9,7 +9,7 @@ import C2CPageFrame from "../../components/c2c/C2CPageFrame";
 import LoadingState from "../../components/common/LoadingState";
 import { useWalletConnector } from "../../hooks/useWalletConnector";
 import { getMySellOrders, getMyTakenOrders, getOrderByShortNo, getPublicOrders, getRuntimeConfig } from "../../services/neteApi";
-import { approveNeteToMarket, approveUsdtToMarket, cancelSellOrder, createSellOrder, fillOrder, readMarketConfig } from "../../services/neteContracts";
+import { approveNeteToMarket, approveUsdtToMarket, cancelSellOrder, createSellOrder, fillOrder, readMarketConfig, readUserBalances } from "../../services/neteContracts";
 import { formatOrderNo, formatTokenAmount, parseTokenInput, shortAddress } from "../../utils/formatters";
 import "../styles/c2c.css";
 
@@ -149,6 +149,14 @@ export default function C2CMarketPage() {
     retry: 1,
   });
 
+  const balancesQuery = useQuery({
+    queryKey: ["nete", "balances", wallet.currentAddress],
+    queryFn: () => readUserBalances(wallet.currentAddress),
+    enabled: Boolean(wallet.currentAddress),
+    staleTime: 10_000,
+    retry: 1,
+  });
+
   const publicOrdersQuery = useQuery({
     queryKey: ["nete", "orders", "public"],
     queryFn: () => getPublicOrders({ page: 1, pageSize: 80 }),
@@ -217,6 +225,7 @@ export default function C2CMarketPage() {
     if (fromApi) return toBigIntSafe(fromApi);
     return marketConfigQuery.data?.guideMaxPrice ?? 0n;
   }, [marketConfigQuery.data?.guideMaxPrice, runtimeConfigQuery.data?.guide_max_price]);
+  const walletNeteBalance = balancesQuery.data?.neteBalance ?? 0n;
 
   const filteredMarketOrders = useMemo(() => {
     const term = toLower(searchKeyword);
@@ -647,6 +656,10 @@ export default function C2CMarketPage() {
             </div>
 
             <form className="c2c-modal-form" onSubmit={handleCreateListing}>
+              <div className="c2c-modal-balance">
+                <span>{t("modules.c2cMarket.walletNeteBalance")}</span>
+                <strong>{wallet.isConnected ? `${formatTokenAmount(walletNeteBalance, 18, 4)} NETE` : t("modules.c2cMarket.messages.connectWallet")}</strong>
+              </div>
               <label className="c2c-modal-field">
                 <span>{t("modules.c2cMarket.sellQuantityLabel")}</span>
                 <input

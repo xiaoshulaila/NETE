@@ -893,6 +893,31 @@
   gap: 12px;
 }
 
+.c2c-modal-balance {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 46px;
+  padding: 10px 12px;
+  border: 1px solid rgba(194, 255, 26, 0.14);
+  border-radius: 8px;
+  background: rgba(194, 255, 26, 0.06);
+}
+
+.c2c-modal-balance span {
+  color: var(--c2c-muted-strong);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.c2c-modal-balance strong {
+  color: var(--c2c-accent);
+  font-size: 14px;
+  font-weight: 800;
+  text-align: right;
+}
+
 .c2c-modal-field {
   display: grid;
   gap: 7px;

@@ -46,11 +46,25 @@ export default function AppShell() {
     retry: 1,
   });
 
+  const referrerMissing = !hasReferrer(referralInfoQuery.data?.referrer);
   const shouldShowBindModal = wallet.isConnected
     && !referralInfoQuery.isLoading
     && !referralInfoQuery.isError
     && !bindModalDismissed
-    && !hasReferrer(referralInfoQuery.data?.referrer);
+    && referrerMissing;
+
+  useEffect(() => {
+    setBindModalDismissed(false);
+  }, [wallet.currentAddress]);
+
+  useEffect(() => {
+    if (!bindModalDismissed || !wallet.isConnected || referralInfoQuery.isLoading || referralInfoQuery.isError || !referrerMissing) {
+      return undefined;
+    }
+
+    const timer = window.setTimeout(() => setBindModalDismissed(false), 1800);
+    return () => window.clearTimeout(timer);
+  }, [bindModalDismissed, referralInfoQuery.isError, referralInfoQuery.isLoading, referrerMissing, wallet.isConnected]);
 
   const handleBindReferrer = async () => {
     const referrer = referrerInput.trim();

@@ -241,13 +241,16 @@ export async function readUserBalances(user) {
 
 export async function readUserMiningData(user) {
   const coreAddress = assertContractAddress("neteCore");
-  const [positionIds, airdropInfo] = await Promise.all([
+  const [positionIds, airdropInfo, timeUnit] = await Promise.all([
     read({ address: coreAddress, abi: neteCoreAbi, functionName: "getUserPositions", args: [user] }),
     readOptional(
       { address: coreAddress, abi: neteCoreAbi, functionName: "airdropInfos", args: [user] },
       { composed: false, positionId: 0n, composeAt: 0n, expireAt: 0n, promoted: false },
     ),
+    readOptional({ address: coreAddress, abi: neteCoreAbi, functionName: "timeUnit" }, 600n),
   ]);
+  const timeUnitSeconds = Number(timeUnit || 600n) || 600;
+  const timeUnitBigInt = BigInt(timeUnitSeconds);
   const [repurchaseBalance, fragmentBalance, airdropRemaining, requireSBT, sbtContract, nftFragmentClaimed] = await Promise.all([
     readOptional({ address: coreAddress, abi: neteCoreAbi, functionName: "repurchaseBalance", args: [user] }, 0n),
     readOptional({ address: coreAddress, abi: neteCoreAbi, functionName: "fragmentBalance", args: [user] }, 0n),
@@ -278,8 +281,8 @@ export async function readUserMiningData(user) {
         read({ address: coreAddress, abi: neteCoreAbi, functionName: "positionProfit", args: [positionId] }),
       ]);
 
-      const cycleTotalDays = Number(position.endAt > position.startAt ? (position.endAt - position.startAt) / 86400n : 0n);
-      const cyclePassedDays = Number(position.lastSettleAt > position.startAt ? (position.lastSettleAt - position.startAt) / 86400n : 0n);
+      const cycleTotalDays = Number(position.endAt > position.startAt ? (position.endAt - position.startAt) / timeUnitBigInt : 0n);
+      const cyclePassedDays = Number(position.lastSettleAt > position.startAt ? (position.lastSettleAt - position.startAt) / timeUnitBigInt : 0n);
 
       return {
         positionId: positionId.toString(),
@@ -302,6 +305,7 @@ export async function readUserMiningData(user) {
   );
 
   return {
+    timeUnitSeconds,
     airdropInfo,
     repurchaseBalance,
     fragmentBalance,
@@ -405,6 +409,16 @@ export async function repurchaseExpiredMiners(account) {
     address: assertContractAddress("neteCore"),
     abi: neteCoreAbi,
     functionName: "repurchaseExpiredMiners",
+  });
+}
+
+export async function repurchaseMiner(account, positionId) {
+  return send({
+    account,
+    address: assertContractAddress("neteCore"),
+    abi: neteCoreAbi,
+    functionName: "repurchase",
+    args: [toBigInt(positionId)],
   });
 }
 

@@ -247,10 +247,17 @@ export default function BuySeedPage() {
                 return (
                   <article className="seed-record-item" key={key}>
                     <div className="seed-record-main">
-                      <span>{t("modules.seed.time")}</span>
-                      <strong>{formatUnixTime(record.created_at ?? record.createdAt)}</strong>
-                      <small className="seed-record-buyer">{shortAddress(record.buyer)}</small>
+                      <div className="seed-record-time">
+                        <span>{t("modules.seed.time")}：</span>
+                        <strong>{formatUnixTime(record.created_at ?? record.createdAt)}</strong>
+                      </div>
+                      <span className="seed-status-chip">{t("modules.seed.successStatus")}</span>
                     </div>
+                    {hash ? (
+                      <small className="seed-record-hash seed-mono">
+                        {t("modules.seed.txHash")}：{shortAddress(hash, 8, 6)}
+                      </small>
+                    ) : null}
                     <div className="seed-record-values">
                       <div className="seed-record-cell">
                         <span>{t("modules.seed.amount")}</span>
@@ -261,8 +268,6 @@ export default function BuySeedPage() {
                         <strong className="seed-mono">{formatTokenAmount(paid, 18, 4)} USDT</strong>
                       </div>
                     </div>
-                    <span className="seed-status-chip">{t("modules.seed.successStatus")}</span>
-                    {hash ? <small className="seed-record-hash seed-mono">{shortAddress(hash, 8, 6)}</small> : null}
                   </article>
                 );
               })}

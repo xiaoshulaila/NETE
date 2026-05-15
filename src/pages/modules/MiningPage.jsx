@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Icon } from "@iconify/react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -18,6 +18,7 @@ import {
   readUserBalances,
   readUserMiningData,
   repurchaseExpiredMiners,
+  repurchaseMiner,
   withdrawAllProfit,
 } from "../../services/neteContracts";
 import { formatTokenAmount } from "../../utils/formatters";
@@ -33,7 +34,7 @@ const PAYMENT_METHODS = {
   wallet: "wallet",
 };
 const AIRDROP_PRINCIPAL = 100n * 10n ** 18n;
-const REPURCHASE_READY_STATES = new Set([1, 2]);
+const REPURCHASE_READY_STATES = new Set([1]);
 
 function isAirdropTier(tier) {
   return tier.principal === AIRDROP_PRINCIPAL && (
@@ -48,18 +49,19 @@ function parsePercent(rateText) {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
-function formatDaysByEpoch(endAt) {
+function formatDaysByEpoch(endAt, timeUnitSeconds = 600) {
   if (!endAt) return 0;
   const nowSec = Math.floor(Date.now() / 1000);
   const diff = Number(endAt) - nowSec;
   if (diff <= 0) return 0;
-  return Math.ceil(diff / 86400);
+  return Math.ceil(diff / timeUnitSeconds);
 }
 
 export default function MiningPage() {
   const { t } = useTranslation();
   const wallet = useWalletConnector();
   const queryClient = useQueryClient();
+  const withdrawingAllRef = useRef(false);
 
   const [activeView, setActiveView] = useState("buy-miners");
   const [selectedModel, setSelectedModel] = useState(null);
@@ -72,6 +74,7 @@ export default function MiningPage() {
   const [claimingAirdrop, setClaimingAirdrop] = useState(false);
   const [claimingAll, setClaimingAll] = useState(false);
   const [repurchasingAll, setRepurchasingAll] = useState(false);
+  const [repurchasingId, setRepurchasingId] = useState("");
   const [claimingId, setClaimingId] = useState("");
   const [withdrawingAll, setWithdrawingAll] = useState(false);
 
@@ -147,6 +150,7 @@ export default function MiningPage() {
   const purchasedMachines = useMemo(() => {
     const tiersMap = new Map(machineModels.map((model) => [model.tierIndex, model]));
     const positions = miningDataQuery.data?.positions || [];
+    const timeUnitSeconds = miningDataQuery.data?.timeUnitSeconds || 600;
 
     return positions.map((position) => {
       const tier = tiersMap.get(position.tierIndex);
@@ -162,10 +166,11 @@ export default function MiningPage() {
         profit: `${formatTokenAmount(position.profit, 18, 4)} NETE`,
         profitWei: position.profit,
         pendingWei: position.pendingReward,
-        remainingDays: formatDaysByEpoch(position.endAt),
+        remainingDays: formatDaysByEpoch(position.endAt, timeUnitSeconds),
         positionId: position.positionId,
         state: Number(position.state),
         isPendingRepurchase: REPURCHASE_READY_STATES.has(Number(position.state)),
+        canRepurchase: !position.isAirdrop && (formatDaysByEpoch(position.endAt, timeUnitSeconds) <= 0 || REPURCHASE_READY_STATES.has(Number(position.state))),
         isAirdrop: position.isAirdrop,
         cycleCurrent,
         cycleTotal,
@@ -176,11 +181,12 @@ export default function MiningPage() {
   const airdropMachineStatus = useMemo(() => {
     const info = miningDataQuery.data?.airdropInfo;
     const related = (miningDataQuery.data?.positions || []).find((item) => item.positionId === String(info?.positionId || ""));
+    const timeUnitSeconds = miningDataQuery.data?.timeUnitSeconds || 600;
 
     return {
       synthesized: Boolean(info?.composed),
       permanent: Boolean(info?.promoted),
-      validityLeftDays: info?.expireAt ? formatDaysByEpoch(Number(info.expireAt)) : 0,
+      validityLeftDays: info?.expireAt ? formatDaysByEpoch(Number(info.expireAt), timeUnitSeconds) : 0,
       produced: related ? `${formatTokenAmount(related.grossClaimed, 18, 4)} NETE` : "0 NETE",
       triggerGiftRule: t("modules.mining.rules.giftRuleValue"),
     };
@@ -279,7 +285,7 @@ export default function MiningPage() {
     () => portfolioRows.filter((item) => !item.isAirdrop && (item.remainingDays <= 0 || item.isPendingRepurchase)).length,
     [portfolioRows],
   );
-  const actionBusy = claimingAll || repurchasingAll || withdrawingAll || Boolean(claimingId);
+  const actionBusy = claimingAll || repurchasingAll || withdrawingAll || Boolean(claimingId) || Boolean(repurchasingId);
   const canClaimAllRewards = wallet.isConnected && totalPendingRewardWei > 0n && !actionBusy;
   const canRepurchaseExpired = wallet.isConnected && repurchasableMinerCount > 0 && !repurchasePaused && !actionBusy;
   const canWithdrawAllProfits = wallet.isConnected && profitPoolBalance > 0n && !actionBusy;
@@ -393,8 +399,23 @@ export default function MiningPage() {
     }
   };
 
+  const handleRepurchasePosition = async (positionId) => {
+    if (!wallet.isConnected || !positionId || actionBusy || repurchasePaused) return;
+
+    try {
+      setRepurchasingId(positionId);
+      await wallet.ensureCorrectChain();
+      await repurchaseMiner(wallet.currentAddress, positionId);
+      await refreshMiningData();
+    } catch {
+      return;
+    } finally {
+      setRepurchasingId("");
+    }
+  };
+
   const handleWithdrawAllProfits = async () => {
-    if (!wallet.isConnected) {
+    if (!wallet.isConnected || withdrawingAllRef.current) {
       return;
     }
     if (profitPoolBalance <= 0n) {
@@ -402,6 +423,7 @@ export default function MiningPage() {
     }
 
     try {
+      withdrawingAllRef.current = true;
       setWithdrawingAll(true);
       await wallet.ensureCorrectChain();
       await withdrawAllProfit(wallet.currentAddress);
@@ -409,6 +431,7 @@ export default function MiningPage() {
     } catch {
       return;
     } finally {
+      withdrawingAllRef.current = false;
       setWithdrawingAll(false);
     }
   };
@@ -607,10 +630,20 @@ export default function MiningPage() {
                           <button
                             className="mining-btn mining-btn--inline"
                             type="button"
-                            disabled={claimingId === machine.positionId || !wallet.isConnected || actionBusy}
-                            onClick={() => handleClaim(machine.positionId)}
+                            disabled={
+                              machine.canRepurchase
+                                ? repurchasingId === machine.positionId || !wallet.isConnected || actionBusy || repurchasePaused
+                                : claimingId === machine.positionId || !wallet.isConnected || actionBusy
+                            }
+                            onClick={() => (machine.canRepurchase ? handleRepurchasePosition(machine.positionId) : handleClaim(machine.positionId))}
                           >
-                            {claimingId === machine.positionId ? t("modules.mining.portfolio.claiming") : t("modules.mining.portfolio.claim")}
+                            {machine.canRepurchase
+                              ? repurchasingId === machine.positionId
+                                ? t("modules.mining.portfolio.repurchasing")
+                                : t("modules.mining.portfolio.repurchase")
+                              : claimingId === machine.positionId
+                                ? t("modules.mining.portfolio.claiming")
+                                : t("modules.mining.portfolio.claim")}
                           </button>
                         </div>
                       </div>
@@ -770,9 +803,9 @@ export default function MiningPage() {
       ) : null}
 
       {selectedModel && portalRoot ? createPortal((
-        <div className="fixed inset-0 z-[520] flex items-end justify-center bg-black/70 px-0 pb-0 pt-2 backdrop-blur-sm md:items-center md:bg-black/75 md:px-2 md:py-4" onClick={closePurchaseModal} role="presentation">
+        <div className="fixed inset-0 z-[520] flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm" onClick={closePurchaseModal} role="presentation">
           <article
-            className="mobile-drawer-enter max-h-[70dvh] w-full max-w-[760px] overflow-y-auto rounded-t-[20px] rounded-b-none border border-white/10 bg-[#141419] p-4 text-white shadow-[0_25px_80px_rgba(0,0,0,0.55)] md:max-h-[92vh] md:rounded-[24px] md:p-5"
+            className="max-h-[88dvh] w-full max-w-[760px] overflow-y-auto rounded-[20px] border border-white/10 bg-[#141419] p-4 text-white shadow-[0_25px_80px_rgba(0,0,0,0.55)] md:max-h-[92vh] md:rounded-[24px] md:p-5"
             role="dialog"
             aria-modal="true"
             aria-label={`${selectedModel.model} ${t("modules.mining.modal.subscribe")}`}
@@ -941,9 +974,9 @@ export default function MiningPage() {
       ), portalRoot) : null}
 
       {airdropModel && portalRoot ? createPortal((
-        <div className="fixed inset-0 z-[530] flex items-end justify-center bg-black/70 px-0 pb-0 pt-2 backdrop-blur-sm md:items-center md:bg-black/75 md:px-2 md:py-4" onClick={closeAirdropModal} role="presentation">
+        <div className="fixed inset-0 z-[530] flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm" onClick={closeAirdropModal} role="presentation">
           <article
-            className="mobile-drawer-enter max-h-[70dvh] w-full max-w-[520px] overflow-y-auto rounded-t-[20px] rounded-b-none border border-white/10 bg-[#141419] p-4 text-white shadow-[0_25px_80px_rgba(0,0,0,0.55)] md:max-h-[92vh] md:rounded-[24px] md:p-5"
+            className="max-h-[88dvh] w-full max-w-[520px] overflow-y-auto rounded-[20px] border border-white/10 bg-[#141419] p-4 text-white shadow-[0_25px_80px_rgba(0,0,0,0.55)] md:max-h-[92vh] md:rounded-[24px] md:p-5"
             role="dialog"
             aria-modal="true"
             aria-label={t("modules.mining.modal.airdropTitle")}
