@@ -177,7 +177,7 @@ const resources = {
         },
       },
       footer: {
-        tagline: "A transparent, sustainable, community-governed on-chain time-value economy.",
+        tagline: "Connecting traditional payments and Web3 through a transparent, sustainable ecosystem.",
         product: "Product",
         developers: "Developers",
         company: "Company",
@@ -209,11 +209,11 @@ const resources = {
           wallet: "Initializing your on-chain account...",
         },
         hero: {
-          badge: "Onchain Live · Community Governed",
-          titleA: "Transparent deflation.",
-          titleB: "Community-governed",
-          titleC: "on-chain time-value engine.",
-          subtitle: "NETE uses smart contracts to power stake-burn mining, multi-level community incentives, and a triple deflation model. Supply is fixed at 3 billion, with a long-term deflation target of 21 million.",
+          badge: "Deflationary Economy | Community Autonomy | Transparent Compliance",
+          titleA: "NETE | Connecting Traditional",
+          titleB: "Payments with the",
+          titleC: "Future of Web3.",
+          subtitle: "NETE reshapes time value through an on-chain deflationary economy and POS staking mining, building a transparent, sustainable decentralized economic engine.",
           primary: "View Core Model",
           secondary: "Explore Mechanics",
           phone: {
@@ -244,54 +244,54 @@ const resources = {
           },
         },
         features: {
-          eyebrow: "// Core Mechanisms",
-          title: "Sustainable growth\npowered by on-chain rules",
-          desc: "NETE replaces opaque centralized accounting with public, verifiable contract rules across issuance, yield, distribution, burns, and governance.",
+          eyebrow: "// Onchain Mechanisms",
+          title: "Automation Builds Trust\nCore On-chain Mechanisms",
+          desc: "Smart contracts automate miner staking, community incentives, and transparent safety rules, making output, distribution, and circulation fully traceable on-chain.",
           cards: [
-            { title: "Triple Deflation", desc: "Withdrawals and miner activation both trigger burns. Output pacing controls inflation while supply gradually converges from 3 billion toward 21 million.", tag: "3B → 21M" },
-            { title: "POS Stake-Burn Mining", desc: "Roughly 99.66% of tokens are released through stake-burn mining. Airdrop miners serve as the conversion entry with clear validity and promotion rules.", tag: "Approx. 2.99B via POS" },
-            { title: "V1-V9 Community Governance", desc: "Community dividends split by level and daily new performance, then combine with fixed rewards.", tag: "Dual dividends + rewards" },
-            { title: "On-chain Safety and Traceability", desc: "No central fund pool. Funds remain in contracts and user wallets, while trades, dividends, and burns are publicly traceable.", tag: "Transparent · Verifiable" }
+            { title: "Staking Mining, Compound Growth", desc: "Multiple miner tiers offer flexible participation, daily automated yield, principal reinvestment, withdrawable profit, and cycle extensions with output reduction to prevent inflation.", tag: "Multi-tier miners | Daily yield | Cycle reduction" },
+            { title: "Multi-level Incentives, Shared Governance", desc: "Users with 8 direct referrals unlock 20-level acceleration, V1-V9 level dividends, fully on-chain fee distribution, and C2C market-maker support.", tag: "20-level acceleration | V1-V9 dividends" },
+            { title: "On-chain Trust, Transparent Rules", desc: "Contracts execute automatically with no central fund pool, and all data is verifiable on-chain.", tag: "Smart contracts | No fund pool | Verifiable data" },
+            { title: "Technical Team", desc: "As an EEA alliance member, the team independently develops VIA Protocol and the Nete platform with full-stack blockchain capabilities and trusted security.", tag: "VIA Protocol | Nete Platform" }
           ],
         },
         project: {
-          eyebrow: "// Project Overview",
-          title: "NETE Project Overview",
-          desc: "NETE is a transparent, sustainable, community-governed on-chain time-value ecosystem. Its verifiable rules, traceable processes, and auditable distribution address the trust gaps of opaque models.",
-          mechanismsTitle: "Core Economic Mechanics",
-          rulesTitle: "Distribution and Circulation Rules",
+          eyebrow: "// Deflation Model",
+          title: "Scarcity Creates Value, A Deflationary Economy",
+          desc: "NETE starts with an initial supply of 3 billion tokens. Withdrawals and miner activation trigger direct burns, with an ultimate deflation target of 21 million tokens.",
+          mechanismsTitle: "Issuance and Deflation",
+          rulesTitle: "Initial Allocation",
           modelMechanisms: [
-            "Initial supply is fixed at 3 billion with no additional issuance.",
-            "Long-term deflation target: compress circulating supply to 21 million.",
-            "Withdrawals and miner activation trigger burns, creating forced deflation.",
-            "Withdrawal fees are collected by miner tier at 20%-30% and distributed daily on-chain."
+            "Initial supply: 3 billion NETE.",
+            "Ultimate deflation target: 21 million tokens.",
+            "Burn trigger: withdrawals and miner activation directly destroy tokens.",
+            "The on-chain deflationary economy continuously compresses circulating supply."
           ],
           roadmapItems: [
-            "Withdrawal fee split: 20% burn, 30% project treasury, 50% community dividends.",
-            "Community dividends: 50% split across V1-V9 and 50% weighted by daily new performance.",
-            "C2C seller fee is 10% in USDT for liquidity support and ecosystem development.",
-            "V4+ users can apply for market-maker accounts, waive fees, and earn a 5% spread."
+            "Seed round: 5 million tokens at 0.5 USDT each.",
+            "Airdrop: 5 million tokens.",
+            "POS staking output: about 2.99 billion tokens.",
+            "Airdrops and staking output together form the ecosystem launch entry."
           ],
           contractItems: [
-            { name: "Bootstrap Allocation", detail: "5M seed round (0.17%) + 5M staged airdrop (0.17%); the rest is released through stake-burn mining." },
-            { name: "POS Output Mix", detail: "About 2.99B (99.66%) is generated through POS stake-burn mining, aligning output with deflation." },
-            { name: "Safety and Transparency", detail: "No central fund pool, automated contracts, revocable privileges, and on-chain traceability for trades and distribution." }
+            { name: "Airdrop Conversion", detail: "Registration grants a 100-type airdrop miner. If the user buys a real miner of at least 100 type within 75 days, the airdrop miner can become permanent." },
+            { name: "POS Staking Mining", detail: "Users participate through miners, creating an on-chain traceable path for time-value release." },
+            { name: "Transparent Compliance", detail: "Core rules are executed by contracts, with burns, output, and distribution fully verifiable on-chain." }
           ],
         },
         markets: {
-          eyebrow: "// Tokenomics",
-          title: "Core economic\nparameters",
+          eyebrow: "// Token Economy",
+          title: "Issuance, Allocation\nand Airdrop Conversion",
           cards: [
-            { name: "Total Supply", ticker: "SUPPLY", price: "3B NETE", change: "Fixed supply" },
-            { name: "Deflation Target", ticker: "DEFLATION", price: "21M NETE", change: "Burns from withdrawal / activation" },
-            { name: "Bootstrap Allocation", ticker: "BOOTSTRAP", price: "5M + 5M", change: "Seed round at 0.5 USDT / NETE" },
-            { name: "Withdrawal Fee Split", ticker: "FEE SPLIT", price: "20% / 30% / 50%", change: "Burn / Project / Community" },
-            { name: "C2C Circulation", ticker: "C2C", price: "10% seller fee", change: "V4+ can apply for fee-free maker status" }
+            { name: "Initial Supply", ticker: "SUPPLY", price: "3B NETE", change: "Total ecosystem launch supply" },
+            { name: "Ultimate Deflation", ticker: "DEFLATION", price: "21M NETE", change: "Burns triggered by withdrawals and miner activation" },
+            { name: "Seed Round", ticker: "SEED", price: "5M NETE", change: "0.5 USDT / NETE" },
+            { name: "Airdrop", ticker: "AIRDROP", price: "5M NETE", change: "Register to receive a 100-type airdrop miner" },
+            { name: "POS Staking Output", ticker: "POS", price: "About 2.99B NETE", change: "Released through miner output" }
           ],
         },
         cta: {
-          title: "Ready to join the NETE on-chain economy?",
-          subtitle: "From mining output and community governance to C2C circulation, key actions are contract-executed and auditable end to end.",
+          title: "Join NETE | Build a transparent, sustainable on-chain value ecosystem together",
+          subtitle: "From a deflationary economy and POS staking mining to community autonomy, NETE uses transparent rules to connect traditional payments with the future of Web3.",
           action: "Join NETE Now",
           enter: "Enter",
           quick: "Open",
