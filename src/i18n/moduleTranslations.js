@@ -152,6 +152,8 @@ export const moduleTranslations = {
         normal: "正常",
         wrongChain: "待切链",
         running: "运行中",
+        pendingRepurchase: "待复投",
+        ended: "已结束",
       },
       messages: {
         connectFirst: "请先连接钱包后再进行矿机申购与收益领取。",
@@ -306,6 +308,7 @@ export const moduleTranslations = {
         paymentMethod: "付款方式",
         payWithPrincipal: "本金池 NETE",
         payWithWallet: "链上 NETE",
+        payWithAuto: "自动混合",
         insufficientBalance: "当前付款方式余额不足，请切换付款方式或调整申购台数。",
         quantityUnavailable: "申购台数已超过当前可购买数量。",
         calculator: "收益计算",
@@ -647,6 +650,8 @@ export const moduleTranslations = {
         normal: "Normal",
         wrongChain: "Switch Chain",
         running: "Running",
+        pendingRepurchase: "Pending Reinvest",
+        ended: "Ended",
       },
       messages: {
         connectFirst: "Connect your wallet before subscribing to miners or claiming rewards.",
@@ -801,6 +806,7 @@ export const moduleTranslations = {
         paymentMethod: "Payment Method",
         payWithPrincipal: "Principal Pool NETE",
         payWithWallet: "On-chain NETE",
+        payWithAuto: "Auto Mix",
         insufficientBalance: "Insufficient balance for the selected payment method. Switch payment method or reduce quantity.",
         quantityUnavailable: "Quantity exceeds the current available purchase limit.",
         calculator: "Yield Calculator",

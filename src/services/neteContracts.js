@@ -11,6 +11,26 @@ import { wagmiConfig } from "../web3/wagmiConfig";
 
 const ONE_18 = 10n ** 18n;
 const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
+const neteCoreRepurchaseModeAbi = [
+  ...neteCoreAbi,
+  {
+    type: "function",
+    name: "repurchaseExpiredMinersWithMode",
+    inputs: [{ name: "payMode", type: "uint8", internalType: "uint8" }],
+    outputs: [],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
+    name: "repurchaseWithMode",
+    inputs: [
+      { name: "posId", type: "uint256", internalType: "uint256" },
+      { name: "payMode", type: "uint8", internalType: "uint8" },
+    ],
+    outputs: [],
+    stateMutability: "nonpayable",
+  },
+];
 const erc721BalanceAbi = [
   {
     type: "function",
@@ -403,22 +423,23 @@ export async function claimAllRewards(account) {
   });
 }
 
-export async function repurchaseExpiredMiners(account) {
+export async function repurchaseExpiredMiners(account, payMode = 2) {
   return send({
     account,
     address: assertContractAddress("neteCore"),
-    abi: neteCoreAbi,
-    functionName: "repurchaseExpiredMiners",
+    abi: neteCoreRepurchaseModeAbi,
+    functionName: "repurchaseExpiredMinersWithMode",
+    args: [Number(payMode)],
   });
 }
 
-export async function repurchaseMiner(account, positionId) {
+export async function repurchaseMiner(account, positionId, payMode = 2) {
   return send({
     account,
     address: assertContractAddress("neteCore"),
-    abi: neteCoreAbi,
-    functionName: "repurchase",
-    args: [toBigInt(positionId)],
+    abi: neteCoreRepurchaseModeAbi,
+    functionName: "repurchaseWithMode",
+    args: [toBigInt(positionId), Number(payMode)],
   });
 }
 

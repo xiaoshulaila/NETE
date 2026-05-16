@@ -787,6 +787,19 @@
   },
   {
     "type": "function",
+    "name": "repurchaseExpiredMinersWithMode",
+    "inputs": [
+      {
+        "name": "payMode",
+        "type": "uint8",
+        "internalType": "uint8"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
     "name": "repurchasePaused",
     "inputs": [],
     "outputs": [
@@ -797,6 +810,24 @@
       }
     ],
     "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "repurchaseWithMode",
+    "inputs": [
+      {
+        "name": "posId",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "payMode",
+        "type": "uint8",
+        "internalType": "uint8"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
   },
   {
     "type": "function",
@@ -1661,6 +1692,43 @@
   },
   {
     "type": "event",
+    "name": "RepurchasePayment",
+    "inputs": [
+      {
+        "name": "user",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "payMode",
+        "type": "uint8",
+        "indexed": false,
+        "internalType": "uint8"
+      },
+      {
+        "name": "fromRepurchasePool",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "fromWallet",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "totalAmount",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
     "name": "Repurchased",
     "inputs": [
       {
@@ -1994,6 +2062,11 @@
   {
     "type": "error",
     "name": "InvalidInitialization",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "InvalidRepurchasePayMode",
     "inputs": []
   },
   {
