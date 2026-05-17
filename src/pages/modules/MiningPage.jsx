@@ -73,6 +73,16 @@ function formatDaysByEpoch(endAt, timeUnitSeconds = 600) {
   return Math.ceil(diff / timeUnitSeconds);
 }
 
+function getPositionCycleDays(tier, position) {
+  const baseDays = Number(tier?.periodDays || position.cycleTotalDays || 1);
+  const extendDays = Number(tier?.extendDays || 0);
+  const maxDays = Number(tier?.maxPeriodDays || 0);
+  const completedRepurchases = Math.max(0, Number(position.currentPeriod || 1) - 1);
+  const cycleDays = baseDays + completedRepurchases * extendDays;
+
+  return Math.max(1, maxDays > 0 ? Math.min(cycleDays, maxDays) : cycleDays);
+}
+
 export default function MiningPage() {
   const { t } = useTranslation();
   const wallet = useWalletConnector();
@@ -153,6 +163,7 @@ export default function MiningPage() {
           principalWei: tier.principal,
           unitCount: tier.maxSlots,
           periodDays: tier.cycleDays,
+          extendDays: tier.extendDays,
           returnRate: isAirdrop ? "120%" : tier.returnRateText,
           maxPeriodDays: tier.maxDays,
           withdrawFee: Number((tier.feeBps / 100).toFixed(2)),
@@ -173,10 +184,9 @@ export default function MiningPage() {
 
     return positions.map((position) => {
       const tier = tiersMap.get(position.tierIndex);
-      const cycleTotal = Math.max(1, Number(tier?.periodDays || position.cycleTotalDays || 1));
+      const configuredCycleTotal = getPositionCycleDays(tier, position);
       const totalRemainingDays = formatDaysByEpoch(position.endAt, timeUnitSeconds);
-      const rawPassedDays = Math.max(0, Number(position.cyclePassedDays || 0));
-      const cycleRemainder = rawPassedDays % cycleTotal;
+      const cycleTotal = Math.max(configuredCycleTotal, totalRemainingDays);
       const state = Number(position.state);
       const isRunning = state === POSITION_STATES.running;
       const isEnded = state === POSITION_STATES.ended;
@@ -191,7 +201,7 @@ export default function MiningPage() {
       );
       const cycleCurrent = totalRemainingDays <= 0 || isPendingRepurchase || isEnded
         ? cycleTotal
-        : Math.max(0, Math.min(cycleRemainder || (rawPassedDays > 0 ? cycleTotal : 0), cycleTotal));
+        : Math.max(0, Math.min(cycleTotal - totalRemainingDays, cycleTotal));
       const remainingDays = totalRemainingDays <= 0 || isPendingRepurchase || isEnded ? 0 : Math.max(cycleTotal - cycleCurrent, 0);
 
       return {

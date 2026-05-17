@@ -28,9 +28,11 @@ export function formatOrderNo(value) {
 
   try {
     const decoded = hexToString(text, { size: 32 }).replace(/\0/g, "").trim();
-    return decoded && /^[\x20-\x7E]+$/.test(decoded) ? decoded : text;
+    return decoded && /^[\x20-\x7E]+$/.test(decoded)
+      ? decoded
+      : text.replace(/^0x/i, "").slice(0, 10).toLowerCase();
   } catch {
-    return text;
+    return text.replace(/^0x/i, "").slice(0, 10).toLowerCase();
   }
 }
 

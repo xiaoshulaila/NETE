@@ -68,7 +68,7 @@ function isOrderOpen(status) {
 }
 
 function getOrderDisplayNo(order) {
-  return order?.shortOrderNo || order?.orderId || "--";
+  return order?.shortOrderNo || order?.orderNo || order?.orderId || "--";
 }
 
 function normalizeOrder(raw) {
@@ -233,7 +233,7 @@ export default function C2CMarketPage() {
       .filter((item) => isOrderOpen(item.status))
       .filter((item) => {
         if (!term) return true;
-        return toLower(item.shortOrderNo).includes(term) || toLower(item.seller).includes(term);
+        return toLower(item.shortOrderNo).includes(term) || toLower(item.orderNo).includes(term) || toLower(item.seller).includes(term);
       });
   }, [publicOrders, searchKeyword]);
 
@@ -380,9 +380,10 @@ export default function C2CMarketPage() {
       await wallet.ensureCorrectChain();
       await approveNeteToMarket(wallet.currentAddress, neteAmount);
       const tx = await createSellOrder(wallet.currentAddress, neteAmount, pricePerNete);
+      const shortOrderNo = tx.shortOrderNo || formatOrderNo(tx.orderNo);
       const optimisticOrder = normalizeOrder({
         order_id: tx.orderId || "",
-        short_order_no: tx.shortOrderNo || "",
+        short_order_no: shortOrderNo,
         order_no: tx.orderNo || tx.hash,
         seller: tx.seller || wallet.currentAddress,
         nete_amount: tx.neteAmount,
