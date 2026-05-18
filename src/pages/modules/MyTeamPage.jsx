@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import LoadingState from "../../components/common/LoadingState";
 import { useWalletConnector } from "../../hooks/useWalletConnector";
-import { getReferralDirects, getReferralInfo } from "../../services/neteApi";
+import { getPerformanceLegs, getReferralDirects, getReferralInfo } from "../../services/neteApi";
 import { readNetworkUserData } from "../../services/neteContracts";
 import { formatTokenAmount, shortAddress } from "../../utils/formatters";
 
@@ -15,15 +15,13 @@ const performanceTabs = [
 const performanceFieldMap = {
   miner: {
     own: ["miner_own_perf", "own_miner_perf", "mining_own_perf", "own_mining_perf", "miner_perf", "mining_perf", "own_perf"],
-    team: ["miner_team_perf", "team_miner_perf", "mining_team_perf", "team_mining_perf"],
-    subtree: ["miner_subtree_perf", "subtree_miner_perf", "mining_subtree_perf", "subtree_mining_perf", "subtree_perf", "team_perf", "total_perf"],
+    team: ["miner_team_perf", "team_miner_perf", "mining_team_perf", "team_mining_perf", "team_perf"],
     direct: ["miner_direct_perf", "direct_miner_perf", "mining_direct_perf", "direct_mining_perf", "direct_perf", "performance", "total_perf"],
     small: ["miner_small_leg_perf", "small_miner_perf", "mining_small_leg_perf", "small_mining_perf", "small_leg_perf"],
   },
   seed: {
     own: ["seed_own_perf", "own_seed_perf", "presale_own_perf", "own_presale_perf", "seed_perf", "presale_perf"],
-    team: ["seed_team_perf", "team_seed_perf", "presale_team_perf", "team_presale_perf"],
-    subtree: ["seed_subtree_perf", "subtree_seed_perf", "presale_subtree_perf", "subtree_presale_perf"],
+    team: ["seed_team_perf", "team_seed_perf", "presale_team_perf", "team_presale_perf", "team_perf"],
     direct: ["seed_direct_perf", "direct_seed_perf", "presale_direct_perf", "direct_presale_perf"],
     small: ["seed_small_leg_perf", "small_seed_perf", "presale_small_leg_perf", "small_presale_perf"],
   },
@@ -60,15 +58,6 @@ function pickBigInt(source, keys) {
   return 0n;
 }
 
-function pickOptionalBigInt(source, keys) {
-  for (const key of keys) {
-    if (source?.[key] !== undefined && source?.[key] !== null) {
-      return toBigIntSafe(source[key]);
-    }
-  }
-  return null;
-}
-
 function pickNumber(source, keys) {
   for (const key of keys) {
     if (source?.[key] !== undefined && source?.[key] !== null) {
@@ -79,30 +68,13 @@ function pickNumber(source, keys) {
   return 0;
 }
 
-function getPerformance(source, type) {
-  const fields = performanceFieldMap[type];
-  const own = pickBigInt(source, fields.own);
-  const explicitTeam = pickOptionalBigInt(source, fields.team);
-  const subtree = pickBigInt(source, fields.subtree);
-  const team = explicitTeam ?? (subtree > own ? subtree - own : 0n);
-
-  return {
-    own,
-    team,
-    direct: pickBigInt(source, fields.direct),
-    small: pickBigInt(source, fields.small),
-  };
-}
-
 function getMemberPerformance(member, type) {
   const fields = performanceFieldMap[type];
   const own = pickBigInt(member, fields.own);
-  const explicitTeam = pickOptionalBigInt(member, fields.team);
-  const subtree = pickBigInt(member, fields.subtree);
 
   return {
     direct: pickBigInt(member, fields.direct) || own,
-    team: explicitTeam ?? (subtree > own ? subtree - own : 0n),
+    team: pickBigInt(member, fields.team),
     teamCount: pickNumber(member, teamCountFieldMap[type]),
   };
 }
@@ -159,6 +131,14 @@ export default function MyTeamPage() {
     retry: 1,
   });
 
+  const performanceLegsQuery = useQuery({
+    queryKey: ["nete", "performance-legs", wallet.currentAddress],
+    queryFn: () => getPerformanceLegs(wallet.currentAddress),
+    enabled: Boolean(wallet.currentAddress),
+    staleTime: 15_000,
+    retry: 1,
+  });
+
   const directListQuery = useQuery({
     queryKey: ["nete", "referral-directs", wallet.currentAddress, activePerformance],
     queryFn: () => getReferralDirects(wallet.currentAddress, { page: 1, pageSize: 50, type: activePerformance }).catch(() => []),
@@ -168,9 +148,10 @@ export default function MyTeamPage() {
   });
 
   const referralInfo = referralInfoQuery.data || {};
+  const performanceLegs = performanceLegsQuery.data || {};
   const directCount = Number(referralInfo.direct_count ?? 0);
   const maxDepth = Number(referralInfo.max_depth ?? 0);
-  const currentLevel = referralInfo.user_level ?? networkDataQuery.data?.userLevel ?? 0;
+  const currentLevel = performanceLegs.user_level ?? referralInfo.user_level ?? networkDataQuery.data?.userLevel ?? 0;
 
   const directMembers = useMemo(
     () => {
@@ -186,12 +167,10 @@ export default function MyTeamPage() {
     return directCount >= 8 ? t("modules.team.layersRange") : t("modules.team.layers", { count: Math.min(directCount, maxDepth || directCount) });
   }, [directCount, maxDepth, t]);
 
-  const seedPerformance = getPerformance(referralInfo, "seed");
-  const minerPerformance = getPerformance(referralInfo, "miner");
-  const totalPerformance = seedPerformance.team + minerPerformance.team;
-  const smallLegPerformance = seedPerformance.small + minerPerformance.small;
+  const teamPerformance = pickBigInt({ ...referralInfo, ...performanceLegs }, ["team_perf"]);
+  const smallLegPerformance = pickBigInt({ ...referralInfo, ...performanceLegs }, ["small_leg_perf"]);
   const directListLoading = directListQuery.isLoading || referralInfoQuery.isLoading;
-  const teamLoading = referralInfoQuery.isLoading || networkDataQuery.isLoading;
+  const teamLoading = referralInfoQuery.isLoading || networkDataQuery.isLoading || performanceLegsQuery.isLoading;
 
   const renderPerformanceRows = () => {
     if (directListLoading) {
@@ -251,7 +230,7 @@ export default function MyTeamPage() {
         <article className="module-stat-card p-4">
           <div className="text-xs uppercase tracking-[0.12em] text-white/55">{t("modules.team.stats.performance")}</div>
           <div className="mt-2 font-display text-base font-bold text-[#caff00] md:text-lg">
-            {teamLoading ? <LoadingState compact /> : formatTokenAmount(totalPerformance, 18, 2)}
+            {teamLoading ? <LoadingState compact /> : formatTokenAmount(teamPerformance, 18, 2)}
           </div>
         </article>
         <article className="module-stat-card p-4">

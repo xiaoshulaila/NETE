@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
+import { formatUnits } from "viem";
 import LoadingState from "../../components/common/LoadingState";
 import { useWalletConnector } from "../../hooks/useWalletConnector";
 import { getPresaleRecords } from "../../services/neteApi";
@@ -60,6 +61,7 @@ export default function BuySeedPage() {
   const seedRemaining = seedInfoQuery.data?.seedRemaining ?? 0n;
   const seedPoolInit = seedInfoQuery.data?.seedPoolInit ?? 0n;
   const seedSold = seedInfoQuery.data?.seedSold ?? 0n;
+  const minSeedBuy = seedInfoQuery.data?.minSeedBuy ?? 30n * ONE_18;
   const presaleActive = Boolean(seedInfoQuery.data?.presaleActive);
   const usdtBalance = balanceQuery.data?.usdtBalance ?? 0n;
   const principalPoolBalance = miningDataQuery.data?.repurchaseBalance ?? 0n;
@@ -67,6 +69,8 @@ export default function BuySeedPage() {
   const soldPercent = seedTotal > 0n ? Math.min(100, Number((seedSold * 10_000n) / seedTotal) / 100) : 0;
   const soldPercentText = `${soldPercent.toFixed(2).replace(/\.00$/, "")}%`;
   const seedPriceText = seedPrice > 0n ? formatTokenAmount(seedPrice, 18, 8) : "--";
+  const minSeedBuyInputValue = formatUnits(minSeedBuy, 18);
+  const minSeedBuyText = formatTokenAmount(minSeedBuy, 18, 0);
   const usdtBalanceText = wallet.isConnected ? `${formatTokenAmount(usdtBalance, 18, 6)} USDT` : t("modules.seed.connectWallet");
   const principalPoolBalanceText = wallet.isConnected ? `${formatTokenAmount(principalPoolBalance, 18, 4)} NETE` : t("modules.seed.connectWallet");
   const seedInfoLoading = seedInfoQuery.isLoading;
@@ -86,7 +90,7 @@ export default function BuySeedPage() {
   }, [parsedQuantity, seedPrice]);
   const estimatedUsdtText = estimatedUsdt > 0n ? `${formatTokenAmount(estimatedUsdt, 18, 6)} USDT` : "--";
 
-  const canSubmit = wallet.isConnected && presaleActive && parsedQuantity > 0n && estimatedUsdt > 0n && !submitting;
+  const canSubmit = wallet.isConnected && presaleActive && parsedQuantity >= minSeedBuy && estimatedUsdt > 0n && !submitting;
   const submitLabel = submitting
     ? t("modules.seed.submitting")
     : presaleActive
@@ -211,9 +215,9 @@ export default function BuySeedPage() {
               <input
                 className="seed-input seed-mono"
                 type="number"
-                min="30"
+                min={minSeedBuyInputValue}
                 step="1"
-                placeholder={t("modules.seed.quantityPlaceholder")}
+                placeholder={t("modules.seed.quantityPlaceholder", { amount: minSeedBuyText })}
                 value={quantityInput}
                 onChange={(event) => setQuantityInput(event.target.value)}
               />

@@ -12,26 +12,6 @@ import { wagmiConfig } from "../web3/wagmiConfig";
 const ONE_18 = 10n ** 18n;
 const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
 const BUY_SEED_GAS_LIMIT = 1_500_000n;
-const neteCoreRepurchaseModeAbi = [
-  ...neteCoreAbi,
-  {
-    type: "function",
-    name: "repurchaseExpiredMinersWithMode",
-    inputs: [{ name: "payMode", type: "uint8", internalType: "uint8" }],
-    outputs: [],
-    stateMutability: "nonpayable",
-  },
-  {
-    type: "function",
-    name: "repurchaseWithMode",
-    inputs: [
-      { name: "posId", type: "uint256", internalType: "uint256" },
-      { name: "payMode", type: "uint8", internalType: "uint8" },
-    ],
-    outputs: [],
-    stateMutability: "nonpayable",
-  },
-];
 const erc721BalanceAbi = [
   {
     type: "function",
@@ -190,13 +170,14 @@ export async function readTokenMetrics() {
 
 export async function readCoreSeedInfo() {
   const coreAddress = assertContractAddress("neteCore");
-  const [seedPrice, seedRemaining, posRemaining, presaleActive, seedPoolInit, seedSold] = await Promise.all([
+  const [seedPrice, seedRemaining, posRemaining, presaleActive, seedPoolInit, seedSold, minSeedBuy] = await Promise.all([
     read({ address: coreAddress, abi: neteCoreAbi, functionName: "SEED_PRICE" }),
     read({ address: coreAddress, abi: neteCoreAbi, functionName: "seedRemaining" }),
     read({ address: coreAddress, abi: neteCoreAbi, functionName: "posRemaining" }),
     read({ address: coreAddress, abi: neteCoreAbi, functionName: "presaleActive" }),
     read({ address: coreAddress, abi: neteCoreAbi, functionName: "SEED_POOL_INIT" }),
     read({ address: coreAddress, abi: neteCoreAbi, functionName: "seedSold" }),
+    readOptional({ address: coreAddress, abi: neteCoreAbi, functionName: "MIN_SEED_BUY" }, 30n * ONE_18),
   ]);
 
   return {
@@ -206,6 +187,7 @@ export async function readCoreSeedInfo() {
     presaleActive,
     seedPoolInit,
     seedSold,
+    minSeedBuy,
     seedPriceText: formatUnits(seedPrice, 18),
   };
 }
@@ -439,23 +421,22 @@ export async function claimAllRewards(account) {
   });
 }
 
-export async function repurchaseExpiredMiners(account, payMode = 2) {
+export async function repurchaseExpiredMiners(account) {
   return send({
     account,
     address: assertContractAddress("neteCore"),
-    abi: neteCoreRepurchaseModeAbi,
-    functionName: "repurchaseExpiredMinersWithMode",
-    args: [Number(payMode)],
+    abi: neteCoreAbi,
+    functionName: "repurchaseExpiredMiners",
   });
 }
 
-export async function repurchaseMiner(account, positionId, payMode = 2) {
+export async function repurchaseMiner(account, positionId) {
   return send({
     account,
     address: assertContractAddress("neteCore"),
-    abi: neteCoreRepurchaseModeAbi,
-    functionName: "repurchaseWithMode",
-    args: [toBigInt(positionId), Number(payMode)],
+    abi: neteCoreAbi,
+    functionName: "repurchase",
+    args: [toBigInt(positionId)],
   });
 }
 

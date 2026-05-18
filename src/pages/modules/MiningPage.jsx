@@ -33,12 +33,6 @@ const MINING_CONTRACT_KEYS = ["neteToken", "neteCore"];
 const PAYMENT_METHODS = {
   principal: "principal",
   wallet: "wallet",
-  auto: "auto",
-};
-const REPURCHASE_PAY_MODES = {
-  [PAYMENT_METHODS.principal]: 0,
-  [PAYMENT_METHODS.wallet]: 1,
-  [PAYMENT_METHODS.auto]: 2,
 };
 const REPURCHASE_MODES = {
   all: "all",
@@ -103,7 +97,6 @@ export default function MiningPage() {
   const [repurchasingAll, setRepurchasingAll] = useState(false);
   const [repurchasingId, setRepurchasingId] = useState("");
   const [repurchaseTarget, setRepurchaseTarget] = useState(null);
-  const [repurchasePaymentMethod, setRepurchasePaymentMethod] = useState(PAYMENT_METHODS.principal);
   const [claimingId, setClaimingId] = useState("");
   const [withdrawingAll, setWithdrawingAll] = useState(false);
 
@@ -195,11 +188,7 @@ export default function MiningPage() {
       const canClaim = isRunning
         && position.pendingReward > 0n
         && (!position.isAirdrop || airdropPromoted || totalRemainingDays > 0);
-      const canRepurchase = !position.isAirdrop && (
-        isPendingRepurchase ||
-        (isRunning && totalRemainingDays <= 0) ||
-        isEnded
-      );
+      const canRepurchase = !position.isAirdrop && isPendingRepurchase && totalRemainingDays <= 0;
       const cycleCurrent = totalRemainingDays <= 0 || isPendingRepurchase || isEnded
         ? cycleTotal
         : Math.max(0, Math.min(cycleTotal - totalRemainingDays, cycleTotal));
@@ -367,17 +356,7 @@ export default function MiningPage() {
   const canWithdrawAllProfits = wallet.isConnected && profitPoolBalance >= MIN_VISIBLE_NETE_WEI && !actionBusy;
   const canClaimAirdrop = wallet.isConnected && !claimingAirdrop && !hasAirdropMiner && !airdropNftClaimed && hasRequiredAirdropNft;
   const repurchaseRequiredWei = repurchaseContext?.amountWei || 0n;
-  const repurchaseWalletShortfallWei = repurchaseRequiredWei > principalPoolBalance ? repurchaseRequiredWei - principalPoolBalance : 0n;
-  const repurchaseWalletApprovalWei = repurchasePaymentMethod === PAYMENT_METHODS.wallet
-    ? repurchaseRequiredWei
-    : repurchasePaymentMethod === PAYMENT_METHODS.auto
-      ? repurchaseWalletShortfallWei
-      : 0n;
-  const repurchaseBalanceEnough = repurchasePaymentMethod === PAYMENT_METHODS.wallet
-    ? chainNeteBalance >= repurchaseRequiredWei
-    : repurchasePaymentMethod === PAYMENT_METHODS.auto
-      ? principalPoolBalance + chainNeteBalance >= repurchaseRequiredWei
-      : principalPoolBalance >= repurchaseRequiredWei;
+  const repurchaseBalanceEnough = principalPoolBalance >= repurchaseRequiredWei;
   const canSubmitRepurchase = Boolean(repurchaseContext)
     && wallet.isConnected
     && !actionBusy
@@ -421,12 +400,10 @@ export default function MiningPage() {
 
   function openRepurchaseModal(target) {
     setRepurchaseTarget(target);
-    setRepurchasePaymentMethod(PAYMENT_METHODS.auto);
   }
 
   function closeRepurchaseModal() {
     setRepurchaseTarget(null);
-    setRepurchasePaymentMethod(PAYMENT_METHODS.auto);
   }
 
   function openAgreementModal() {
@@ -509,16 +486,10 @@ export default function MiningPage() {
         setRepurchasingId(positionId);
       }
       await wallet.ensureCorrectChain();
-      if (repurchaseWalletApprovalWei > 0n) {
-        const allowance = await readNeteCoreAllowance(wallet.currentAddress);
-        if (allowance < repurchaseWalletApprovalWei) {
-          await approveNeteToCore(wallet.currentAddress, repurchaseWalletApprovalWei);
-        }
-      }
       if (isBatch) {
-        await repurchaseExpiredMiners(wallet.currentAddress, REPURCHASE_PAY_MODES[repurchasePaymentMethod]);
+        await repurchaseExpiredMiners(wallet.currentAddress);
       } else {
-        await repurchaseMiner(wallet.currentAddress, positionId, REPURCHASE_PAY_MODES[repurchasePaymentMethod]);
+        await repurchaseMiner(wallet.currentAddress, positionId);
       }
       await refreshMiningData();
       closeRepurchaseModal();
@@ -1144,42 +1115,11 @@ export default function MiningPage() {
             </section>
 
             <section className="mt-4">
-              <div className="grid grid-cols-2 gap-2 text-xs">
+              <div className="grid grid-cols-1 gap-2 text-xs">
                 <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
                   <span className="text-white/55">{t("modules.mining.modal.principalBalance")}</span>
                   <strong className="mt-1 block text-white">{formatTokenAmount(principalPoolBalance, 18, 4)} NETE</strong>
                 </div>
-                <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
-                  <span className="text-white/55">{t("modules.mining.modal.chainBalance")}</span>
-                  <strong className="mt-1 block text-white">{formatTokenAmount(chainNeteBalance, 18, 4)} NETE</strong>
-                </div>
-              </div>
-            </section>
-
-            <section className="mt-4">
-              <div className="text-sm font-semibold text-white/90">{t("modules.mining.modal.paymentMethod")}</div>
-              <div className="mt-2 grid grid-cols-3 gap-2">
-                <button
-                  className={repurchasePaymentMethod === PAYMENT_METHODS.principal ? "mining-payment-option is-active" : "mining-payment-option"}
-                  type="button"
-                  onClick={() => setRepurchasePaymentMethod(PAYMENT_METHODS.principal)}
-                >
-                  {t("modules.mining.modal.payWithPrincipal")}
-                </button>
-                <button
-                  className={repurchasePaymentMethod === PAYMENT_METHODS.wallet ? "mining-payment-option is-active" : "mining-payment-option"}
-                  type="button"
-                  onClick={() => setRepurchasePaymentMethod(PAYMENT_METHODS.wallet)}
-                >
-                  {t("modules.mining.modal.payWithWallet")}
-                </button>
-                <button
-                  className={repurchasePaymentMethod === PAYMENT_METHODS.auto ? "mining-payment-option is-active" : "mining-payment-option"}
-                  type="button"
-                  onClick={() => setRepurchasePaymentMethod(PAYMENT_METHODS.auto)}
-                >
-                  {t("modules.mining.modal.payWithAuto")}
-                </button>
               </div>
               {!repurchaseBalanceEnough && repurchaseContext.amountWei > 0n ? (
                 <p className="mt-2 text-xs text-[#ffb199]">{t("modules.mining.modal.insufficientBalance")}</p>

@@ -101,6 +101,18 @@ export async function getReferralDirects(user, { page = 1, pageSize = 50, type }
   });
 }
 
+export async function getReferralDownlines(user) {
+  return request("/v1/referral/downlines", { query: { user } });
+}
+
+export async function getPersonalPerformance(user) {
+  return request("/v1/performance/personal", { query: { user } });
+}
+
+export async function getPerformanceLegs(user) {
+  return request("/v1/performance/legs", { query: { user } });
+}
+
 export async function getPresaleRecords(user, { page = 1, pageSize = 20 } = {}) {
   const path = user ? `/v1/presale/records/${user}` : "/v1/presale/records";
   return request(path, {

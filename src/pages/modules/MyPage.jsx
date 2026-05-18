@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import LoadingState from "../../components/common/LoadingState";
 import { useWalletConnector } from "../../hooks/useWalletConnector";
-import { getClaimMessage, getIncomeLedger, getIncomeOverview, getReferralInfo } from "../../services/neteApi";
+import { getClaimMessage, getIncomeLedger, getIncomeOverview, getPerformanceLegs, getReferralInfo } from "../../services/neteApi";
 import { claimWithSignature, readNetworkUserData, readUserBalances, readUserMiningData } from "../../services/neteContracts";
 import { formatTokenAmount, formatUnixTime, shortAddress } from "../../utils/formatters";
 
@@ -73,6 +73,14 @@ export default function MyPage() {
     retry: 1,
   });
 
+  const performanceLegsQuery = useQuery({
+    queryKey: ["nete", "performance-legs", wallet.currentAddress],
+    queryFn: () => getPerformanceLegs(wallet.currentAddress),
+    enabled: Boolean(wallet.currentAddress),
+    staleTime: 15_000,
+    retry: 1,
+  });
+
   const networkDataQuery = useQuery({
     queryKey: ["nete", "network-data", wallet.currentAddress],
     queryFn: () => readNetworkUserData(wallet.currentAddress),
@@ -104,15 +112,14 @@ export default function MyPage() {
 
   const overview = incomeOverviewQuery.data || {};
   const referral = referralInfoQuery.data || {};
+  const performanceLegs = performanceLegsQuery.data || {};
   const balances = balancesQuery.data || {};
   const network = networkDataQuery.data || {};
   const miningData = miningDataQuery.data || {};
-  const currentLevel = referral.user_level ?? overview.user_level ?? network.userLevel ?? 0;
+  const currentLevel = performanceLegs.user_level ?? referral.user_level ?? overview.user_level ?? network.userLevel ?? 0;
   const ownPerformance = toBigIntSafe(referral.own_perf);
-  const subtreePerformance = toBigIntSafe(referral.subtree_perf);
-  const teamPerformance = referral.team_perf === undefined || referral.team_perf === null
-    ? (subtreePerformance > ownPerformance ? subtreePerformance - ownPerformance : 0n)
-    : toBigIntSafe(referral.team_perf);
+  const teamPerformance = toBigIntSafe(performanceLegs.team_perf ?? referral.team_perf);
+  const zonePerformance = toBigIntSafe(performanceLegs.small_leg_perf ?? referral.small_leg_perf);
   const totalDividend = toBigIntSafe(overview.dividend_income_total) + toBigIntSafe(overview.v9_income_total);
   const profitPoolBalance = useMemo(
     () => (miningData.positions || []).reduce((sum, position) => sum + (position.profit || 0n), 0n),
@@ -137,10 +144,10 @@ export default function MyPage() {
       [
         { label: t("modules.my.summary.ownPerformance"), value: formatTokenAmount(ownPerformance, 18, 2), unit: "NETE" },
         { label: t("modules.my.summary.team"), value: formatTokenAmount(teamPerformance, 18, 2), unit: "NETE" },
-        { label: t("modules.my.summary.zonePerformance"), value: formatTokenAmount(referral.small_leg_perf ?? 0n, 18, 2), unit: "NETE" },
+        { label: t("modules.my.summary.zonePerformance"), value: formatTokenAmount(zonePerformance, 18, 2), unit: "NETE" },
       ],
     ];
-  }, [balances.neteBalance, miningData.repurchaseBalance, ownPerformance, profitPoolBalance, referral.small_leg_perf, teamPerformance, t]);
+  }, [balances.neteBalance, miningData.repurchaseBalance, ownPerformance, profitPoolBalance, teamPerformance, t, zonePerformance]);
 
   const claimRows = useMemo(() => [
     { key: "referral", label: t("modules.my.summary.referral"), amount: overview.pending_referral ?? 0n, labelKey: "modules.my.claimActions.referral" },
@@ -148,7 +155,7 @@ export default function MyPage() {
     { key: "v9", label: t("modules.my.summary.v9"), amount: overview.pending_v9 ?? 0n, labelKey: "modules.my.claimActions.v9" },
   ], [overview.pending_dividend, overview.pending_referral, overview.pending_v9, t]);
 
-  const loading = incomeOverviewQuery.isLoading || referralInfoQuery.isLoading || balancesQuery.isLoading || miningDataQuery.isLoading;
+  const loading = incomeOverviewQuery.isLoading || referralInfoQuery.isLoading || performanceLegsQuery.isLoading || balancesQuery.isLoading || miningDataQuery.isLoading;
 
   const copyInviteLink = async () => {
     if (!wallet.currentAddress || inviteLink === "--") return;
