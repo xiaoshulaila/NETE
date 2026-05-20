@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Icon } from "@iconify/react";
 import { NavLink } from "react-router-dom";
 import { useTranslation } from "react-i18next";
@@ -6,16 +6,77 @@ import GlobalHeader from "../components/common/GlobalHeader";
 import FeaturesSection from "../components/landing/FeaturesSection";
 import FooterSection from "../components/landing/FooterSection";
 import HeroSection from "../components/landing/HeroSection";
-import MarketsSection from "../components/landing/MarketsSection";
 import announcementsData from "../data/announcements.json";
 
 function normalizeAnnouncementLanguage(language) {
   const value = String(language || "").toLowerCase();
   if (value.startsWith("zh-tw") || value.startsWith("zh-hk") || value.includes("hant")) return "zh-TW";
-  if (value.startsWith("en")) return "en";
-  if (value.startsWith("ja")) return "ja";
-  if (value.startsWith("ko")) return "ko";
-  return "zh";
+  if (value.startsWith("en")) return "en-US";
+  if (value.startsWith("ja")) return "ja-JP";
+  if (value.startsWith("ko")) return "ko-KR";
+  return "zh-CN";
+}
+
+function getActiveAnnouncements(language) {
+  return (announcementsData.announcements || [])
+    .filter((item) => item.status === "active")
+    .sort((a, b) => Number(a.sort || 0) - Number(b.sort || 0))
+    .map((item) => {
+      const translation = item.translations?.[language] || item.translations?.["zh-CN"];
+      return translation ? { ...item, ...translation } : null;
+    })
+    .filter(Boolean);
+}
+
+function AnnouncementBar({ items, t }) {
+  const [activeIndex, setActiveIndex] = useState(0);
+  const [selectedNotice, setSelectedNotice] = useState(null);
+  const activeNotice = items[activeIndex] || items[0];
+
+  useEffect(() => {
+    setActiveIndex(0);
+  }, [items]);
+
+  useEffect(() => {
+    if (items.length <= 1) return undefined;
+    const timer = window.setInterval(() => {
+      setActiveIndex((current) => (current + 1) % items.length);
+    }, 4200);
+
+    return () => window.clearInterval(timer);
+  }, [items.length]);
+
+  if (!activeNotice) return null;
+
+  return (
+    <>
+      <div className="announcement-bar" role="status" aria-live="polite">
+        <div className="container announcement-bar__inner">
+          <Icon className="announcement-bar__icon" icon="mdi:bullhorn-outline" aria-hidden="true" />
+          <button className="announcement-bar__title" type="button" onClick={() => setSelectedNotice(activeNotice)}>
+            {activeNotice.title}
+          </button>
+        </div>
+      </div>
+
+      {selectedNotice ? (
+        <div className="announcement-modal-backdrop" role="presentation" onClick={() => setSelectedNotice(null)}>
+          <section className="announcement-modal" role="dialog" aria-modal="true" aria-label={selectedNotice.title} onClick={(event) => event.stopPropagation()}>
+            <div className="announcement-modal__head">
+              <div>
+                <span>{t("landing.announcements.label")}</span>
+                <h2>{selectedNotice.title}</h2>
+              </div>
+              <button type="button" onClick={() => setSelectedNotice(null)} aria-label={t("landing.announcements.close")}>
+                <Icon icon="solar:close-circle-outline" aria-hidden="true" />
+              </button>
+            </div>
+            <div className="announcement-modal__content" dangerouslySetInnerHTML={{ __html: selectedNotice.content || "" }} />
+          </section>
+        </div>
+      ) : null}
+    </>
+  );
 }
 
 export default function LandingPage() {
@@ -24,9 +85,13 @@ export default function LandingPage() {
   const roadmapItems = t("landing.project.roadmapItems", { returnObjects: true });
   const contractItems = t("landing.project.contractItems", { returnObjects: true });
   const teamSectionItems = t("landing.team.items", { returnObjects: true });
+  const bridgeItems = t("landing.bridge.items", { returnObjects: true });
+  const foundationItems = t("landing.cta.foundationItems", { returnObjects: true });
   const announcementLanguage = normalizeAnnouncementLanguage(i18n.resolvedLanguage || i18n.language);
-  const announcements = announcementsData[announcementLanguage] || announcementsData.zh;
+  const announcements = useMemo(() => getActiveAnnouncements(announcementLanguage), [announcementLanguage]);
   const teamItems = Array.isArray(teamSectionItems) ? teamSectionItems : [];
+  const flowItems = Array.isArray(bridgeItems) ? bridgeItems : [];
+  const ctaItems = Array.isArray(foundationItems) ? foundationItems : [];
 
   useEffect(() => {
     document.title = "NETE";
@@ -91,22 +156,22 @@ export default function LandingPage() {
       <GlobalHeader />
 
       <main id="main-content" tabIndex={-1}>
+        <AnnouncementBar items={announcements} t={t} />
         <HeroSection />
 
-        <div className="stats-bar stats-bar--announcements" role="marquee" aria-label={t("landing.announcements.aria")} aria-live="off">
-          <div className="stats-bar__track" aria-hidden="true">
-            {[...announcements, ...announcements].map((item, index) => (
-              <div className="stats-bar__item" key={`${item.title}-${index}`}>
-                <span className="stats-bar__label">{t("landing.announcements.label")}</span>
-                <span className="stats-bar__value">{item.title}</span>
-                <span className="stats-bar__change--up">{item.desc}</span>
-                <div className="stats-bar__dot"></div>
+        <FeaturesSection />
+
+        <section className="mechanism-bridge" aria-label={t("landing.bridge.aria")}>
+          <div className="container mechanism-bridge__inner">
+            {flowItems.map((item, index) => (
+              <div className="mechanism-step" key={item.title}>
+                <span className="mechanism-step__index">{String(index + 1).padStart(2, "0")}</span>
+                <strong>{item.title}</strong>
+                <small>{item.desc}</small>
               </div>
             ))}
           </div>
-        </div>
-
-        <FeaturesSection />
+        </section>
 
         <section className="section section--alt" aria-labelledby="project-heading">
           <div className="container">
@@ -188,8 +253,6 @@ export default function LandingPage() {
           </div>
         </section>
 
-        <MarketsSection />
-
         <section className="cta-section" aria-labelledby="cta-heading">
           <div className="cta-section__bg" aria-hidden="true"></div>
           <div className="container">
@@ -200,6 +263,11 @@ export default function LandingPage() {
               <p className="cta-section__subtitle">
                 {t("landing.cta.subtitle")}
               </p>
+              <ul className="cta-section__list">
+                {ctaItems.map((item) => (
+                  <li key={item}>{item}</li>
+                ))}
+              </ul>
               <div className="cta-section__actions">
                 <button className="btn btn--primary btn--lg" id="cta-primary-btn">
                   {t("landing.cta.action")}

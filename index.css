@@ -553,6 +553,7 @@ button {
 
 /* Heading Hierarchy — h1 for hero */
 .hero__title {
+  text-align: left;
   font-family: var(--font-display);
   font-size: clamp(var(--text-3xl), 8vw, var(--text-5xl));
   font-weight: 900;
@@ -560,6 +561,9 @@ button {
   letter-spacing: -0.02em;
   margin-bottom: var(--space-6);
   animation: fadeInUp 0.9s 0.1s var(--ease-out-expo) both;
+}
+.hero__title_p{
+  font-size: clamp(var(--text-xl), 3vw, var(--text-xl));
 }
 
 .hero__title-line--acid {

@@ -21,19 +21,23 @@ export default function HeroSection() {
             </div>
 
             <h1 className="hero__title" id="hero-title">
-              <span className="hero__title-line--acid">{t("landing.hero.titleA")}</span><br />
-              <span>{t("landing.hero.titleB")}</span><br />
-              <span className="hero__title-line--muted">{t("landing.hero.titleC")}</span>
+              <span className="hero__title-line--acid">NETE</span>
+              {/* <span className="hero__title-line--acid">{t("landing.hero.titleA")}</span> */}
+              <p className="hero__title_p">
+                <span>链接传统支付</span>
+                <span className="hero__title-line--muted"> Web3 </span>的
+                <span className="hero__title-line--muted">{t("landing.hero.titleC")}</span>
+              </p>
             </h1>
 
             <p className="hero__subtitle">{t("landing.hero.subtitle")}</p>
 
             <div className="hero__actions">
-              <button className="btn btn--primary btn--lg" id="get-started-btn">
+              <button className="btn btn--primary btn--sm" id="get-started-btn">
                 {t("landing.hero.primary")}
                 <Icon className="hero__action-icon" icon="mdi:arrow-right" aria-hidden="true" />
               </button>
-              <button className="btn btn--ghost btn--lg">
+              <button className="btn btn--ghost btn--sm">
                 {t("landing.hero.secondary")}
               </button>
             </div>
@@ -46,7 +50,9 @@ export default function HeroSection() {
               autoPlay
               loop
               muted
+              defaultMuted
               playsInline
+              controls={false}
               preload="metadata"
             />
           </div>

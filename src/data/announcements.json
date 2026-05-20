@@ -1,72 +1,88 @@
 {
-  "zh": [
+  "announcements": [
     {
-      "title": "NETE 生态模块已开放",
-      "desc": "矿机、C2C、种子预售与团队数据同步上线"
+      "id": "notice_001",
+      "status": "active",
+      "sort": 1,
+      "createdAt": "2026-05-19",
+      "translations": {
+        "zh-CN": {
+          "title": "NETE 生态模块已开放",
+          "content": "<p>矿机、C2C、种子预售与团队数据同步上线，用户可在链上查看资产、收益与交易状态。</p>"
+        },
+        "zh-TW": {
+          "title": "NETE 生態模組已開放",
+          "content": "<p>礦機、C2C、種子預售與團隊數據同步上線，用戶可在鏈上查看資產、收益與交易狀態。</p>"
+        },
+        "en-US": {
+          "title": "NETE ecosystem modules are live",
+          "content": "<p>Mining, C2C, seed presale, and team data are online. Users can view assets, rewards, and transaction status on-chain.</p>"
+        },
+        "ko-KR": {
+          "title": "NETE 생태계 모듈 오픈",
+          "content": "<p>마이닝, C2C, 시드 프리세일, 팀 데이터가 동기화되어 자산, 수익, 거래 상태를 온체인에서 확인할 수 있습니다.</p>"
+        },
+        "ja-JP": {
+          "title": "NETEエコシステム機能が公開",
+          "content": "<p>マイニング、C2C、シードプレセール、チームデータが同期され、資産、収益、取引状態をオンチェーンで確認できます。</p>"
+        }
+      }
     },
     {
-      "title": "链上规则自动执行",
-      "desc": "收益、复投、销毁与分配全链上可查"
+      "id": "notice_002",
+      "status": "active",
+      "sort": 2,
+      "createdAt": "2026-05-19",
+      "translations": {
+        "zh-CN": {
+          "title": "链上规则自动执行",
+          "content": "<p>收益、复投、销毁与分配均由合约执行，关键数据可追踪、可验证。</p>"
+        },
+        "zh-TW": {
+          "title": "鏈上規則自動執行",
+          "content": "<p>收益、復投、銷毀與分配均由合約執行，關鍵數據可追蹤、可驗證。</p>"
+        },
+        "en-US": {
+          "title": "On-chain rules execute automatically",
+          "content": "<p>Rewards, reinvestment, burns, and distribution are executed by contracts, with key data traceable and verifiable.</p>"
+        },
+        "ko-KR": {
+          "title": "온체인 규칙 자동 실행",
+          "content": "<p>수익, 재투자, 소각, 분배는 컨트랙트로 실행되며 핵심 데이터는 추적 및 검증 가능합니다.</p>"
+        },
+        "ja-JP": {
+          "title": "オンチェーンルールを自動実行",
+          "content": "<p>収益、再投資、バーン、分配はコントラクトで実行され、主要データは追跡・検証できます。</p>"
+        }
+      }
     },
     {
-      "title": "多语言体验升级",
-      "desc": "支持英语、日语、韩语、繁体中文、简体中文"
-    }
-  ],
-  "zh-TW": [
-    {
-      "title": "NETE 生態模組已開放",
-      "desc": "礦機、C2C、種子預售與團隊數據同步上線"
-    },
-    {
-      "title": "鏈上規則自動執行",
-      "desc": "收益、復投、銷毀與分配全鏈上可查"
-    },
-    {
-      "title": "多語言體驗升級",
-      "desc": "支援英語、日語、韓語、繁體中文、簡體中文"
-    }
-  ],
-  "en": [
-    {
-      "title": "NETE ecosystem modules are live",
-      "desc": "Mining, C2C, seed presale, and team data are online"
-    },
-    {
-      "title": "On-chain rules execute automatically",
-      "desc": "Rewards, reinvestment, burns, and distribution are verifiable"
-    },
-    {
-      "title": "Multilingual experience upgraded",
-      "desc": "English, Japanese, Korean, Traditional Chinese, and Simplified Chinese"
-    }
-  ],
-  "ja": [
-    {
-      "title": "NETEエコシステム機能が公開",
-      "desc": "マイニング、C2C、シード、チームデータが利用可能"
-    },
-    {
-      "title": "オンチェーンルールを自動実行",
-      "desc": "収益、再投資、バーン、分配を検証可能"
-    },
-    {
-      "title": "多言語体験をアップグレード",
-      "desc": "英語、日本語、韓国語、繁体字、簡体字に対応"
-    }
-  ],
-  "ko": [
-    {
-      "title": "NETE 생태계 모듈 오픈",
-      "desc": "마이닝, C2C, 시드, 팀 데이터 사용 가능"
-    },
-    {
-      "title": "온체인 규칙 자동 실행",
-      "desc": "수익, 재투자, 소각, 분배를 검증 가능"
-    },
-    {
-      "title": "다국어 경험 업그레이드",
-      "desc": "영어, 일본어, 한국어, 번체, 간체 지원"
+      "id": "notice_003",
+      "status": "active",
+      "sort": 3,
+      "createdAt": "2026-05-19",
+      "translations": {
+        "zh-CN": {
+          "title": "多语言体验升级",
+          "content": "<p>首页与核心模块已支持英语、日语、韩语、繁体中文、简体中文。</p>"
+        },
+        "zh-TW": {
+          "title": "多語言體驗升級",
+          "content": "<p>首頁與核心模組已支援英語、日語、韓語、繁體中文、簡體中文。</p>"
+        },
+        "en-US": {
+          "title": "Multilingual experience upgraded",
+          "content": "<p>The homepage and core modules now support English, Japanese, Korean, Traditional Chinese, and Simplified Chinese.</p>"
+        },
+        "ko-KR": {
+          "title": "다국어 경험 업그레이드",
+          "content": "<p>홈페이지와 핵심 모듈은 영어, 일본어, 한국어, 번체 중국어, 간체 중국어를 지원합니다.</p>"
+        },
+        "ja-JP": {
+          "title": "多言語体験をアップグレード",
+          "content": "<p>ホームページと主要モジュールは英語、日本語、韓国語、繁体字中国語、簡体字中国語に対応しました。</p>"
+        }
+      }
     }
   ]
 }

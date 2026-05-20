@@ -15,12 +15,13 @@ import {
   claimAllRewards,
   claimAirdropReward,
   claimReward,
+  readCheckInRecords,
   readNeteCoreAllowance,
   readTierConfigs,
   readUserBalances,
   readUserMiningData,
-  repurchaseExpiredMiners,
-  repurchaseMiner,
+  repurchaseExpiredMinersWithMode,
+  repurchaseMinerWithMode,
   withdrawCheckInProfit,
   withdrawAllProfit,
 } from "../../services/neteContracts";
@@ -40,6 +41,12 @@ const REPURCHASE_MODES = {
   all: "all",
   single: "single",
 };
+const REPURCHASE_PAY_MODES = {
+  principal: 0,
+  wallet: 1,
+  auto: 2,
+  profit: 3,
+};
 const POSITION_STATES = {
   running: 0,
   pendingRepurchase: 1,
@@ -47,14 +54,14 @@ const POSITION_STATES = {
 };
 const AIRDROP_PRINCIPAL = 100n * 10n ** 18n;
 const MIN_VISIBLE_NETE_WEI = 5n * 10n ** 13n;
-const REPURCHASE_READY_STATES = new Set([POSITION_STATES.pendingRepurchase]);
+const REPURCHASE_READY_STATES = new Set([POSITION_STATES.pendingRepurchase, POSITION_STATES.ended]);
 
 function isAirdropTier(tier) {
-  return tier.principal === AIRDROP_PRINCIPAL && (
+  return Number(tier.tierIndex) === 0 || (tier.principal === AIRDROP_PRINCIPAL && (
     Number(tier.returnBps || 0) === 0 ||
     Number(tier.cycleDays || 0) === 75 ||
     Number(tier.maxDays || 0) === 75
-  );
+  ));
 }
 
 function parsePercent(rateText) {
@@ -94,8 +101,22 @@ function getMinerModelName(amountText, t) {
   return suffix ? `${amountText}型·${amountText}NETE ${suffix}` : `${amountText}型·${amountText}NETE`;
 }
 
+function getMinerModelParts(amountText, t) {
+  const amount = Number(String(amountText || "").replace(/,/g, ""));
+  return {
+    base: `${amountText}型·${amountText}NETE`,
+    suffix: getMinerModelSuffix(amount, t),
+  };
+}
+
 function getMinerAmountText(value) {
   return String(value || "0").replace(/(\.\d*?)0+$/, "$1").replace(/\.$/, "");
+}
+
+function getAutoWalletShortfall(requiredWei, principalWei, profitWei) {
+  if (requiredWei <= 0n) return 0n;
+  const afterPrincipal = requiredWei > principalWei ? requiredWei - principalWei : 0n;
+  return afterPrincipal > profitWei ? afterPrincipal - profitWei : 0n;
 }
 
 export default function MiningPage() {
@@ -117,10 +138,12 @@ export default function MiningPage() {
   const [repurchasingAll, setRepurchasingAll] = useState(false);
   const [repurchasingId, setRepurchasingId] = useState("");
   const [repurchaseTarget, setRepurchaseTarget] = useState(null);
+  const [repurchasePayMode, setRepurchasePayMode] = useState(REPURCHASE_PAY_MODES.auto);
   const [claimingId, setClaimingId] = useState("");
   const [withdrawingAll, setWithdrawingAll] = useState(false);
   const [checkingIn, setCheckingIn] = useState(false);
   const [withdrawingCheckin, setWithdrawingCheckin] = useState(false);
+  const [checkinCalendarOpen, setCheckinCalendarOpen] = useState(false);
 
   const tiersQuery = useQuery({
     queryKey: ["nete", "miner-tiers"],
@@ -153,6 +176,14 @@ export default function MiningPage() {
     retry: 1,
   });
 
+  const checkInRecordsQuery = useQuery({
+    queryKey: ["nete", "checkin-records", wallet.currentAddress],
+    queryFn: () => readCheckInRecords(wallet.currentAddress),
+    enabled: Boolean(wallet.currentAddress),
+    staleTime: 30_000,
+    retry: 0,
+  });
+
   const userTierCounts = useMemo(() => {
     const counts = new Map();
 
@@ -169,9 +200,12 @@ export default function MiningPage() {
         const isAirdrop = isAirdropTier(tier);
         const ownedCount = userTierCounts.get(tier.tierIndex) || 0;
         const amountText = getMinerAmountText(tier.principalText);
+        const modelParts = getMinerModelParts(amountText, t);
 
         return {
           model: getMinerModelName(amountText, t),
+          modelBase: modelParts.base,
+          modelSuffix: modelParts.suffix,
           badge: isAirdrop ? t("modules.mining.buy.airdropBadge") : "",
           price: Number(tier.principalText),
           principalWei: tier.principal,
@@ -179,7 +213,7 @@ export default function MiningPage() {
           unitCount: tier.maxSlots,
           periodDays: tier.cycleDays,
           extendDays: tier.extendDays,
-          returnRate: isAirdrop ? "120%" : tier.returnRateText,
+          returnRate: isAirdrop ? "20 NETE" : tier.returnRateText,
           maxPeriodDays: tier.maxDays,
           withdrawFee: 20,
           remaining: Math.max(tier.maxSlots - ownedCount, 0),
@@ -195,26 +229,24 @@ export default function MiningPage() {
     const tiersMap = new Map(machineModels.map((model) => [model.tierIndex, model]));
     const positions = miningDataQuery.data?.positions || [];
     const timeUnitSeconds = miningDataQuery.data?.timeUnitSeconds || 600;
-    const airdropPromoted = Boolean(miningDataQuery.data?.airdropInfo?.promoted)
-      || positions.some((position) => !position.isAirdrop);
-
     return positions.map((position) => {
       const tier = tiersMap.get(position.tierIndex);
       const configuredCycleTotal = getPositionCycleDays(tier, position);
       const totalRemainingDays = formatDaysByEpoch(position.endAt, timeUnitSeconds);
       const cycleTotal = Math.max(configuredCycleTotal, totalRemainingDays);
       const rawState = Number(position.state);
-      const hasReachedEnd = !position.isAirdrop && Number(position.endAt || 0) > 0 && totalRemainingDays <= 0;
-      const state = rawState === POSITION_STATES.running && hasReachedEnd
+      const hasReachedEnd = Number(position.endAt || 0) > 0 && totalRemainingDays <= 0;
+      const claimedTotalWei = position.grossClaimed + (position.accelClaimed || 0n);
+      const hasReachedReturnCap = position.totalReturn > 0n && claimedTotalWei >= position.totalReturn;
+      const state = (rawState === POSITION_STATES.running && (hasReachedEnd || hasReachedReturnCap)) || rawState === POSITION_STATES.ended
         ? POSITION_STATES.pendingRepurchase
         : rawState;
       const isRunning = state === POSITION_STATES.running;
       const isEnded = state === POSITION_STATES.ended;
       const isPendingRepurchase = REPURCHASE_READY_STATES.has(state);
-      const canClaim = isRunning
-        && position.pendingReward > 0n
-        && (!position.isAirdrop || airdropPromoted || totalRemainingDays > 0);
-      const canRepurchase = !position.isAirdrop && isPendingRepurchase && totalRemainingDays <= 0;
+      const canClaim = isRunning && position.pendingReward > 0n;
+      const canRepurchase = isPendingRepurchase;
+      const batchRepurchaseEligible = canRepurchase && (hasReachedEnd || rawState === POSITION_STATES.ended);
       const cycleCurrent = totalRemainingDays <= 0 || isPendingRepurchase || isEnded
         ? cycleTotal
         : Math.max(0, Math.min(cycleTotal - totalRemainingDays, cycleTotal));
@@ -222,20 +254,25 @@ export default function MiningPage() {
 
       return {
         model: tier?.model || `T${position.tierIndex}`,
+        modelBase: tier?.modelBase || tier?.model || `T${position.tierIndex}`,
+        modelSuffix: tier?.modelSuffix || "",
         quantity: 1,
         cycleProgress: t("modules.mining.units.positionProgress", { current: cycleCurrent, total: cycleTotal }),
-        output: formatTokenAmount(position.grossClaimed, 18, 4),
+        output: formatTokenAmount(claimedTotalWei, 18, 4),
         pending: formatTokenAmount(position.pendingReward, 18, 4),
         profit: formatTokenAmount(position.profit, 18, 4),
+        accel: formatTokenAmount(position.accelClaimed || 0n, 18, 4),
         profitWei: position.profit,
         pendingWei: position.pendingReward,
         principalWei: position.principal,
-        purchaseTime: formatUnixTime(position.startAt),
+        purchaseTime: formatUnixTime(position.originStartAt || position.startAt),
         remainingDays,
         positionId: position.positionId,
         state,
+        rawState,
         isEnded,
         isPendingRepurchase,
+        batchRepurchaseEligible,
         canRepurchase,
         canClaim,
         isAirdrop: position.isAirdrop,
@@ -276,19 +313,59 @@ export default function MiningPage() {
     [miningDataQuery.data?.positions],
   );
   const chainNeteBalance = balancesQuery.data?.neteBalance ?? 0n;
-  const hasAirdropMiner = Boolean(miningDataQuery.data?.airdropInfo?.composed);
+  const hasAirdropMiner = Boolean(miningDataQuery.data?.airdropInfo?.composed)
+    || (miningDataQuery.data?.positions || []).some((position) => position.isAirdrop);
   const airdropEligibility = miningDataQuery.data?.airdropEligibility || {};
-  const hasRequiredAirdropNft = airdropEligibility.hasRequiredNft ?? true;
+  const hasRequiredAirdropNft = Boolean(airdropEligibility.hasRequiredNft);
   const airdropNftClaimed = Boolean(airdropEligibility.nftClaimed);
   const hasAnyMinerPosition = (miningDataQuery.data?.positions || []).length > 0;
   const checkinProfitBalance = miningDataQuery.data?.checkinProfitBalance ?? 0n;
   const checkinRewardAmount = miningDataQuery.data?.checkinRewardAmount ?? 0n;
   const lastCheckinAt = Number(miningDataQuery.data?.lastCheckinAt || 0n);
   const lastCheckinAtText = lastCheckinAt > 0 ? new Date(lastCheckinAt * 1000).toLocaleString() : "--";
+  const checkInRecords = checkInRecordsQuery.data || [];
+  const cumulativeCheckInReward = useMemo(
+    () => {
+      const total = checkInRecords.reduce((sum, item) => sum + (item.amount || 0n), 0n);
+      return total > 0n ? total : checkinProfitBalance;
+    },
+    [checkInRecords, checkinProfitBalance],
+  );
+  const checkInCalendar = useMemo(() => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = now.getMonth();
+    const firstDay = new Date(year, month, 1).getDay();
+    const totalDays = new Date(year, month + 1, 0).getDate();
+    const signedDays = new Set(
+      checkInRecords
+        .map((item) => new Date(Number(item.checkinAt || 0) * 1000))
+        .filter((date) => date.getFullYear() === year && date.getMonth() === month)
+        .map((date) => date.getDate()),
+    );
+    const cells = [
+      ...Array.from({ length: firstDay }, (_, index) => ({ key: `empty-${index}`, day: "", empty: true, signed: false })),
+      ...Array.from({ length: totalDays }, (_, index) => {
+        const day = index + 1;
+        return { key: `day-${day}`, day, empty: false, signed: signedDays.has(day) };
+      }),
+    ];
+
+    return {
+      year,
+      month: month + 1,
+      cells,
+      signedCount: signedDays.size,
+    };
+  }, [checkInRecords]);
   const airdropHidden = hasAirdropMiner || airdropNftClaimed;
   const visibleMachineModels = useMemo(
     () => machineModels.filter((model) => !model.isAirdrop || !airdropHidden),
     [airdropHidden, machineModels],
+  );
+  const firstPaidMachineModel = useMemo(
+    () => machineModels.find((model) => !model.isAirdrop),
+    [machineModels],
   );
 
   const projectedCost = useMemo(() => {
@@ -370,18 +447,18 @@ export default function MiningPage() {
     () => portfolioRows.some((item) => item.state === POSITION_STATES.running && (item.pendingWei || 0n) > 0n && !item.canClaim),
     [portfolioRows],
   );
-  const repurchasableMinerCount = useMemo(
-    () => portfolioRows.filter((item) => item.canRepurchase).length,
-    [portfolioRows],
-  );
   const repurchasableMinerRows = useMemo(
     () => portfolioRows.filter((item) => item.canRepurchase),
+    [portfolioRows],
+  );
+  const batchRepurchasableMinerRows = useMemo(
+    () => portfolioRows.filter((item) => item.canRepurchase && item.batchRepurchaseEligible),
     [portfolioRows],
   );
   const repurchaseContext = useMemo(() => {
     if (!repurchaseTarget) return null;
     const rows = repurchaseTarget.mode === REPURCHASE_MODES.all
-      ? repurchasableMinerRows
+      ? batchRepurchasableMinerRows
       : portfolioRows.filter((item) => item.positionId === repurchaseTarget.positionId && item.canRepurchase);
     const amountWei = rows.reduce((sum, item) => sum + (item.principalWei || 0n), 0n);
 
@@ -390,16 +467,29 @@ export default function MiningPage() {
       rows,
       amountWei,
     };
-  }, [portfolioRows, repurchaseTarget, repurchasableMinerRows]);
+  }, [batchRepurchasableMinerRows, portfolioRows, repurchaseTarget]);
   const actionBusy = claimingAll || repurchasingAll || withdrawingAll || checkingIn || withdrawingCheckin || Boolean(claimingId) || Boolean(repurchasingId);
   const canClaimAllRewards = wallet.isConnected && totalClaimableRewardWei > 0n && !hasClaimBlockingPosition && !actionBusy;
-  const canRepurchaseExpired = wallet.isConnected && repurchasableMinerCount > 0 && !repurchasePaused && !actionBusy;
+  const canRepurchaseExpired = wallet.isConnected && batchRepurchasableMinerRows.length > 0 && !repurchasePaused && !actionBusy;
   const canWithdrawAllProfits = wallet.isConnected && profitPoolBalance >= MIN_VISIBLE_NETE_WEI && !actionBusy;
   const canClaimAirdrop = wallet.isConnected && !claimingAirdrop && !hasAirdropMiner && !airdropNftClaimed && hasRequiredAirdropNft;
   const canCheckInWithBABT = wallet.isConnected && !actionBusy && !hasAnyMinerPosition && hasRequiredAirdropNft && checkinRewardAmount > 0n;
   const canWithdrawCheckinProfit = wallet.isConnected && !actionBusy && checkinProfitBalance >= MIN_VISIBLE_NETE_WEI;
   const repurchaseRequiredWei = repurchaseContext?.amountWei || 0n;
-  const repurchaseBalanceEnough = principalPoolBalance >= repurchaseRequiredWei;
+  const repurchaseWalletShortfall = useMemo(() => {
+    if (repurchasePayMode === REPURCHASE_PAY_MODES.wallet) return repurchaseRequiredWei;
+    if (repurchasePayMode === REPURCHASE_PAY_MODES.auto) {
+      return getAutoWalletShortfall(repurchaseRequiredWei, principalPoolBalance, profitPoolBalance);
+    }
+    return 0n;
+  }, [principalPoolBalance, profitPoolBalance, repurchasePayMode, repurchaseRequiredWei]);
+  const repurchaseBalanceEnough = useMemo(() => {
+    if (repurchaseRequiredWei <= 0n) return false;
+    if (repurchasePayMode === REPURCHASE_PAY_MODES.principal) return principalPoolBalance >= repurchaseRequiredWei;
+    if (repurchasePayMode === REPURCHASE_PAY_MODES.wallet) return chainNeteBalance >= repurchaseRequiredWei;
+    if (repurchasePayMode === REPURCHASE_PAY_MODES.profit) return profitPoolBalance >= repurchaseRequiredWei;
+    return principalPoolBalance + profitPoolBalance + chainNeteBalance >= repurchaseRequiredWei;
+  }, [chainNeteBalance, principalPoolBalance, profitPoolBalance, repurchasePayMode, repurchaseRequiredWei]);
   const canSubmitRepurchase = Boolean(repurchaseContext)
     && wallet.isConnected
     && !actionBusy
@@ -442,11 +532,13 @@ export default function MiningPage() {
   }
 
   function openRepurchaseModal(target) {
+    setRepurchasePayMode(REPURCHASE_PAY_MODES.auto);
     setRepurchaseTarget(target);
   }
 
   function closeRepurchaseModal() {
     setRepurchaseTarget(null);
+    setRepurchasePayMode(REPURCHASE_PAY_MODES.auto);
   }
 
   function openAgreementModal() {
@@ -499,6 +591,7 @@ export default function MiningPage() {
       queryClient.invalidateQueries({ queryKey: ["nete", "balances", wallet.currentAddress] }),
       queryClient.invalidateQueries({ queryKey: ["nete", "income-overview", wallet.currentAddress] }),
       queryClient.invalidateQueries({ queryKey: ["nete", "income-ledger", wallet.currentAddress] }),
+      queryClient.invalidateQueries({ queryKey: ["nete", "checkin-records", wallet.currentAddress] }),
     ]);
   };
 
@@ -529,10 +622,16 @@ export default function MiningPage() {
         setRepurchasingId(positionId);
       }
       await wallet.ensureCorrectChain();
+      if (repurchaseWalletShortfall > 0n) {
+        const allowance = await readNeteCoreAllowance(wallet.currentAddress);
+        if (allowance < repurchaseWalletShortfall) {
+          await approveNeteToCore(wallet.currentAddress, repurchaseWalletShortfall);
+        }
+      }
       if (isBatch) {
-        await repurchaseExpiredMiners(wallet.currentAddress);
+        await repurchaseExpiredMinersWithMode(wallet.currentAddress, repurchasePayMode);
       } else {
-        await repurchaseMiner(wallet.currentAddress, positionId);
+        await repurchaseMinerWithMode(wallet.currentAddress, positionId, repurchasePayMode);
       }
       await refreshMiningData();
       closeRepurchaseModal();
@@ -634,7 +733,8 @@ export default function MiningPage() {
     }
   };
 
-  const checkinSection = (
+  const shouldShowCheckinSection = !wallet.isConnected || (!hasAnyMinerPosition && hasRequiredAirdropNft);
+  const checkinSection = shouldShowCheckinSection ? (
     <section className="mining-section">
       <div className="mining-panel-card mining-checkin-card">
         <div className="mining-checkin-card__head">
@@ -650,6 +750,12 @@ export default function MiningPage() {
             <span>{t("modules.mining.checkin.balance")}</span>
             <strong>{formatTokenAmount(checkinProfitBalance, 18, 4)} NETE</strong>
           </div>
+        </div>
+        <div className="mining-checkin-grid">
+          <div className="mining-info-tile">
+            <span>{t("modules.mining.checkin.total")}</span>
+            <strong className="is-accent">{formatTokenAmount(cumulativeCheckInReward, 18, 4)} NETE</strong>
+          </div>
           <div className="mining-info-tile">
             <span>{t("modules.mining.checkin.last")}</span>
             <strong>{lastCheckinAtText}</strong>
@@ -658,12 +764,20 @@ export default function MiningPage() {
 
         <div className="mining-checkin-actions">
           <button
-            className="mining-btn mining-btn--primary"
+            className="mining-btn mining-btn--primary mining-checkin-action--main"
             type="button"
             disabled={!canCheckInWithBABT}
             onClick={handleCheckInWithBABT}
           >
             {checkingIn ? t("modules.mining.checkin.checking") : t("modules.mining.checkin.checkIn")}
+          </button>
+          <button
+            className="mining-btn mining-btn--ghost"
+            type="button"
+            disabled={!wallet.isConnected}
+            onClick={() => setCheckinCalendarOpen(true)}
+          >
+            {t("modules.mining.checkin.records")}
           </button>
           <button
             className="mining-btn mining-btn--ghost"
@@ -677,14 +791,10 @@ export default function MiningPage() {
 
         {!wallet.isConnected ? (
           <p className="mining-checkin-hint">{t("modules.mining.checkin.connectHint")}</p>
-        ) : !hasRequiredAirdropNft ? (
-          <p className="mining-checkin-hint">{t("modules.mining.checkin.nftRequired")}</p>
-        ) : hasAnyMinerPosition ? (
-          <p className="mining-checkin-hint">{t("modules.mining.checkin.purchasedLocked")}</p>
         ) : null}
       </div>
     </section>
-  );
+  ) : null;
 
   const portalRoot = typeof document === "undefined" ? null : document.body;
 
@@ -798,7 +908,10 @@ export default function MiningPage() {
                       <div className="mining-portfolio-item__top">
                         <div>
                           <div className="mining-portfolio-item__title">
-                            <h4>{machine.model}</h4>
+                            <h4 className="mining-model-title">
+                              <span>{machine.modelBase}</span>
+                              {machine.modelSuffix ? <small>{machine.modelSuffix}</small> : null}
+                            </h4>
                             {machine.isAirdrop ? (
                               <span className="mining-chip mining-chip--airdrop">
                                 {machine.isAirdrop && airdropMachineStatus.permanent ? t("modules.mining.buy.airdropPermanentBadge") : t("modules.mining.buy.airdropBadge")}
@@ -932,7 +1045,10 @@ export default function MiningPage() {
                   visibleMachineModels.map((model) => (
                     <article key={model.tierIndex} className={model.isAirdrop ? "mining-plan-item mining-plan-item--airdrop" : "mining-plan-item"}>
                       <div>
-                        <h4>{model.model}</h4>
+                        <h4 className="mining-model-title">
+                          <span>{model.modelBase}</span>
+                          {model.modelSuffix ? <small>{model.modelSuffix}</small> : null}
+                        </h4>
                       </div>
                       {model.badge ? <span className="mining-plan-badge">{model.isAirdrop && airdropMachineStatus.permanent ? t("modules.mining.buy.airdropPermanentBadge") : model.badge}</span> : null}
 
@@ -946,13 +1062,14 @@ export default function MiningPage() {
                         <button
                           className="mining-btn mining-btn--primary"
                           type="button"
-                          onClick={() => (model.isAirdrop ? openAirdropModal(model) : openPurchaseModal(model))}
-                          disabled={!model.isAirdrop && (repurchasePaused || model.remaining <= 0)}
+                          onClick={() => (model.isAirdrop ? openPurchaseModal(firstPaidMachineModel) : openPurchaseModal(model))}
+                          disabled={model.isAirdrop ? !firstPaidMachineModel : (repurchasePaused || model.remaining <= 0)}
                         >
                           {model.isAirdrop
                             ? t("modules.mining.buy.airdropAction")
                             : t("modules.mining.buy.actionValue")}
                         </button>
+                        {model.isAirdrop ? <p className="mining-airdrop-gift">{t("modules.mining.buy.airdropGiftHint")}</p> : null}
                       </div>
                     </article>
                   ))
@@ -994,40 +1111,55 @@ export default function MiningPage() {
             </div>
 
             <div className="mining-rules-grid">
-              <article className="mining-rule-card">
-                <span className="mining-rule-card__index">01</span>
-                <h4>{t("modules.mining.rules.airdropTitle")}</h4>
-                <p>{t("modules.mining.rules.synthesized")}：{airdropMachineStatus.synthesized ? t("modules.mining.statuses.synthesized") : t("modules.mining.statuses.notSynthesized")}</p>
-                <p>{t("modules.mining.rules.permanent")}：{airdropMachineStatus.permanent ? t("modules.mining.statuses.permanent") : t("modules.mining.statuses.notPermanent")}</p>
-                <p>{t("modules.mining.rules.validityLeft")}：{t("modules.mining.units.days", { count: airdropMachineStatus.validityLeftDays })}</p>
-                <p>{t("modules.mining.rules.produced")}：{airdropMachineStatus.produced}</p>
-                <p>{t("modules.mining.rules.giftRule")}：{airdropMachineStatus.triggerGiftRule}</p>
-              </article>
+              <details className="mining-rule-card" open>
+                <summary>
+                  <span className="mining-rule-card__index">01</span>
+                  <h4>{t("modules.mining.rules.airdropTitle")}</h4>
+                  <Icon icon="solar:alt-arrow-down-outline" aria-hidden="true" />
+                </summary>
+                <div className="mining-rule-card__body">
+                  <p>{t("modules.mining.rules.synthesized")}：{airdropMachineStatus.synthesized ? t("modules.mining.statuses.synthesized") : t("modules.mining.statuses.notSynthesized")}</p>
+                  <p>{t("modules.mining.rules.permanent")}：{airdropMachineStatus.permanent ? t("modules.mining.statuses.permanent") : t("modules.mining.statuses.notPermanent")}</p>
+                  <p>{t("modules.mining.rules.validityLeft")}：{t("modules.mining.units.days", { count: airdropMachineStatus.validityLeftDays })}</p>
+                  <p>{t("modules.mining.rules.produced")}：{airdropMachineStatus.produced}</p>
+                  <p>{t("modules.mining.rules.giftRule")}：{airdropMachineStatus.triggerGiftRule}</p>
+                </div>
+              </details>
 
-              <article className="mining-rule-card">
-                <span className="mining-rule-card__index">02</span>
-                <h4>{t("modules.mining.rules.outputWalletTitle")}</h4>
-                <ul>
-                  {t("modules.mining.rules.outputWalletRules", { returnObjects: true }).map((item) => (
-                    <li key={item}>{item}</li>
-                  ))}
-                </ul>
-              </article>
+              <details className="mining-rule-card">
+                <summary>
+                  <span className="mining-rule-card__index">02</span>
+                  <h4>{t("modules.mining.rules.outputWalletTitle")}</h4>
+                  <Icon icon="solar:alt-arrow-down-outline" aria-hidden="true" />
+                </summary>
+                <div className="mining-rule-card__body">
+                  <ul>
+                    {t("modules.mining.rules.outputWalletRules", { returnObjects: true }).map((item) => (
+                      <li key={item}>{item}</li>
+                    ))}
+                  </ul>
+                </div>
+              </details>
 
-              <article className="mining-rule-card">
-                <span className="mining-rule-card__index">03</span>
-                <h4>{t("modules.mining.rules.reductionTitle")}</h4>
-                <ul>
-                  {t("modules.mining.rules.reductionRules", { returnObjects: true }).map((item) => (
-                    <li key={item}>{item}</li>
-                  ))}
-                </ul>
-                <ul>
-                  {t("modules.mining.rules.feeRules", { returnObjects: true }).map((row) => (
-                    <li key={row.item}>{row.item}：{row.ratio}（{row.use}）</li>
-                  ))}
-                </ul>
-              </article>
+              <details className="mining-rule-card">
+                <summary>
+                  <span className="mining-rule-card__index">03</span>
+                  <h4>{t("modules.mining.rules.reductionTitle")}</h4>
+                  <Icon icon="solar:alt-arrow-down-outline" aria-hidden="true" />
+                </summary>
+                <div className="mining-rule-card__body">
+                  <ul>
+                    {t("modules.mining.rules.reductionRules", { returnObjects: true }).map((item) => (
+                      <li key={item}>{item}</li>
+                    ))}
+                  </ul>
+                  <ul>
+                    {t("modules.mining.rules.feeRules", { returnObjects: true }).map((row) => (
+                      <li key={row.item}>{row.item}：{row.ratio}（{row.use}）</li>
+                    ))}
+                  </ul>
+                </div>
+              </details>
             </div>
           </section>
         </div>
@@ -1244,14 +1376,61 @@ export default function MiningPage() {
             </section>
 
             <section className="mt-4">
-              <div className="grid grid-cols-1 gap-2 text-xs">
+              <div className="grid grid-cols-3 gap-2 text-xs max-[520px]:grid-cols-1">
                 <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
                   <span className="text-white/55">{t("modules.mining.modal.principalBalance")}</span>
                   <strong className="mt-1 block text-white">{formatTokenAmount(principalPoolBalance, 18, 4)} NETE</strong>
                 </div>
+                <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
+                  <span className="text-white/55">{t("modules.mining.modal.profitBalance")}</span>
+                  <strong className="mt-1 block text-white">{formatTokenAmount(profitPoolBalance, 18, 4)} NETE</strong>
+                </div>
+                <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
+                  <span className="text-white/55">{t("modules.mining.modal.chainBalance")}</span>
+                  <strong className="mt-1 block text-white">{formatTokenAmount(chainNeteBalance, 18, 4)} NETE</strong>
+                </div>
               </div>
+            </section>
+
+            <section className="mt-4">
+              <div className="text-sm font-semibold text-white/90">{t("modules.mining.modal.repurchasePaymentMethod")}</div>
+              <div className="mt-2 grid grid-cols-2 gap-2 max-[390px]:grid-cols-1">
+                <button
+                  className={repurchasePayMode === REPURCHASE_PAY_MODES.auto ? "mining-payment-option is-active" : "mining-payment-option"}
+                  type="button"
+                  onClick={() => setRepurchasePayMode(REPURCHASE_PAY_MODES.auto)}
+                >
+                  {t("modules.mining.modal.payWithAuto")}
+                </button>
+                <button
+                  className={repurchasePayMode === REPURCHASE_PAY_MODES.principal ? "mining-payment-option is-active" : "mining-payment-option"}
+                  type="button"
+                  onClick={() => setRepurchasePayMode(REPURCHASE_PAY_MODES.principal)}
+                >
+                  {t("modules.mining.modal.payWithPrincipal")}
+                </button>
+                <button
+                  className={repurchasePayMode === REPURCHASE_PAY_MODES.profit ? "mining-payment-option is-active" : "mining-payment-option"}
+                  type="button"
+                  onClick={() => setRepurchasePayMode(REPURCHASE_PAY_MODES.profit)}
+                >
+                  {t("modules.mining.modal.payWithProfit")}
+                </button>
+                <button
+                  className={repurchasePayMode === REPURCHASE_PAY_MODES.wallet ? "mining-payment-option is-active" : "mining-payment-option"}
+                  type="button"
+                  onClick={() => setRepurchasePayMode(REPURCHASE_PAY_MODES.wallet)}
+                >
+                  {t("modules.mining.modal.payWithWallet")}
+                </button>
+              </div>
+              {repurchasePayMode === REPURCHASE_PAY_MODES.auto && repurchaseWalletShortfall > 0n ? (
+                <p className="mt-2 text-xs text-white/60">
+                  {t("modules.mining.modal.repurchaseWalletTopUp", { amount: formatTokenAmount(repurchaseWalletShortfall, 18, 4) })}
+                </p>
+              ) : null}
               {!repurchaseBalanceEnough && repurchaseContext.amountWei > 0n ? (
-                <p className="mt-2 text-xs text-[#ffb199]">{t("modules.mining.modal.insufficientBalance")}</p>
+                <p className="mt-2 text-xs text-[#ffb199]">{t("modules.mining.modal.repurchaseInsufficientBalance")}</p>
               ) : null}
               {repurchaseContext.rows.length === 0 ? (
                 <p className="mt-2 text-xs text-[#ffb199]">{t("modules.mining.modal.repurchaseUnavailable")}</p>
@@ -1268,6 +1447,41 @@ export default function MiningPage() {
               {repurchaseSubmitting ? t("modules.mining.portfolio.repurchasing") : t("modules.mining.modal.repurchaseSubmit")}
             </button>
           </article>
+        </div>
+      ), portalRoot) : null}
+
+      {checkinCalendarOpen && portalRoot ? createPortal((
+        <div className="calendar-mask is-open" onClick={() => setCheckinCalendarOpen(false)} role="presentation">
+          <div className="calendar-popup" onClick={(event) => event.stopPropagation()} role="dialog" aria-modal="true" aria-label={t("modules.mining.checkin.records")}>
+            <div className="calendar-header">
+              <span>{t("modules.mining.checkin.calendarTitle")}</span>
+              <button type="button" onClick={() => setCheckinCalendarOpen(false)} aria-label={t("modules.mining.modal.close")}>
+                <Icon icon="solar:close-circle-outline" width="1em" height="1em" />
+              </button>
+            </div>
+
+            <div className="calendar-month">{t("modules.mining.checkin.calendarMonth", { year: checkInCalendar.year, month: checkInCalendar.month })}</div>
+
+            <div className="calendar-week" aria-hidden="true">
+              {t("modules.mining.checkin.weekdays", { returnObjects: true }).map((day) => (
+                <span key={day}>{day}</span>
+              ))}
+            </div>
+
+            <div className="calendar-days">
+              {checkInCalendar.cells.map((cell) => (
+                <div className={cell.empty ? "calendar-day empty" : "calendar-day"} key={cell.key}>
+                  {cell.day ? <span>{cell.day}</span> : null}
+                  {cell.signed ? <i className="check-icon" aria-label={t("modules.mining.checkin.signed")}>✓</i> : null}
+                </div>
+              ))}
+            </div>
+
+            <div className="calendar-footer">
+              <div>{t("modules.mining.checkin.monthSigned", { count: checkInCalendar.signedCount })}</div>
+              <div>{t("modules.mining.checkin.totalAmount")} <b>+{formatTokenAmount(cumulativeCheckInReward, 18, 4)}</b></div>
+            </div>
+          </div>
         </div>
       ), portalRoot) : null}
 

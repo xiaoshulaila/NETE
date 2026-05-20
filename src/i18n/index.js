@@ -36,7 +36,7 @@ const resources = {
       },
       footer: {
         tagline: "连接传统支付与 Web3 的透明可持续生态。",
-        closing: "NETE  连接传统支付与Web3的透明可持续生态。",
+        closing: "加入NETE｜让每一次交易都成为价值的连接。",
         product: "产品",
         developers: "开发者",
         company: "公司",
@@ -137,11 +137,20 @@ const resources = {
         announcements: {
           aria: "NETE 公告栏",
           label: "公告",
+          close: "关闭公告",
+        },
+        bridge: {
+          aria: "机制与经济模型衔接",
+          items: [
+            { title: "合约执行", desc: "规则自动触发" },
+            { title: "产出释放", desc: "按周期透明流转" },
+            { title: "价值回流", desc: "销毁与分配同步完成" }
+          ],
         },
         team: {
           eyebrow: "// Technical Team",
-          title: "技术团队・可信执行",
-          desc: "EEA 联盟成员，自主研发 VIA Protocol 与 Nete 平台，拥有全栈区块链技术能力。",
+          title: "技术基因，2018年我们就已站在浪潮之巅",
+          desc: "EEA 联盟成员，自主研发 VIA Protocol 与 Nete 平台，以全栈区块链技术能力支撑生态长期运行。",
           items: [
             { title: "自主研发", desc: "核心协议、业务合约与前端交互统一围绕链上透明规则构建。", tag: "VIA Protocol｜Nete 平台" },
             { title: "安全可信", desc: "以合约自动执行为基础，持续提升生态参与、结算与数据同步的可靠性。", tag: "全栈技术｜链上验证" }
@@ -159,8 +168,15 @@ const resources = {
           ],
         },
         cta: {
-          title: "加入 NETE｜共建透明、可持续的链上价值生态",
-          subtitle: "从通缩经济、矿机产出到社区自治，NETE 以透明规则连接传统支付与 Web3 的未来。",
+          title: "NETE基金会 | 不是管理者，是守护者",
+          subtitle: "NETE Foundation不隶属于任何单一商业实体，它以独立、透明、非营利为原则，致力于：",
+          foundationItems: [
+            "维护NETE生态的长期健康发展",
+            "管理生态基金，支持开发者与创新项目",
+            "推动社区治理，逐步实现权力下放",
+            "链接传统金融与Web3世界，降低准入门槛"
+          ],
+          closing: "加入NETE｜让每一次交易都成为价值的连接。",
           action: "立即参与 NETE",
           enter: "立即进入",
           quick: "快速前往",
@@ -203,7 +219,7 @@ const resources = {
       },
       footer: {
         tagline: "Connecting traditional payments and Web3 through a transparent, sustainable ecosystem.",
-        closing: "NETE connects traditional payments with a transparent, sustainable Web3 ecosystem.",
+        closing: "Join NETE | Let every transaction become a connection of value.",
         product: "Product",
         developers: "Developers",
         company: "Company",
@@ -304,11 +320,20 @@ const resources = {
         announcements: {
           aria: "NETE announcements",
           label: "Notice",
+          close: "Close announcement",
+        },
+        bridge: {
+          aria: "Mechanism and economic model transition",
+          items: [
+            { title: "Contract Execution", desc: "Rules trigger automatically" },
+            { title: "Output Release", desc: "Transparent cycle-based flow" },
+            { title: "Value Return", desc: "Burns and distribution complete together" }
+          ],
         },
         team: {
           eyebrow: "// Technical Team",
-          title: "Technical Team, Trusted Execution",
-          desc: "As an EEA alliance member, the team independently develops VIA Protocol and the Nete platform with full-stack blockchain capabilities.",
+          title: "Technical DNA, ahead of the wave since 2018",
+          desc: "As an EEA alliance member, the team independently develops VIA Protocol and the Nete platform, supporting long-term ecosystem operations with full-stack blockchain capabilities.",
           items: [
             { title: "Independent R&D", desc: "Core protocol, business contracts, and frontend flows are built around transparent on-chain rules.", tag: "VIA Protocol | Nete Platform" },
             { title: "Secure and Reliable", desc: "Contract automation improves reliability across participation, settlement, and data synchronization.", tag: "Full-stack tech | On-chain verification" }
@@ -326,8 +351,15 @@ const resources = {
           ],
         },
         cta: {
-          title: "Join NETE | Build a transparent, sustainable on-chain value ecosystem together",
-          subtitle: "From a deflationary economy and miner output to community autonomy, NETE uses transparent rules to connect traditional payments with the future of Web3.",
+          title: "NETE Foundation | Not a manager, but a guardian",
+          subtitle: "NETE Foundation is not affiliated with any single commercial entity. It is independent, transparent, and non-profit, committed to:",
+          foundationItems: [
+            "Maintaining the long-term health of the NETE ecosystem",
+            "Managing the ecosystem fund and supporting developers and innovation",
+            "Promoting community governance and progressive decentralization",
+            "Connecting traditional finance with Web3 and lowering access barriers"
+          ],
+          closing: "Join NETE | Let every transaction become a connection of value.",
           action: "Join NETE Now",
           enter: "Enter",
           quick: "Open",
@@ -385,7 +417,7 @@ resources["zh-TW"] = {
     },
     footer: {
       tagline: "連接傳統支付與 Web3 的透明可持續生態。",
-      closing: "NETE  連接傳統支付與Web3的透明可持續生態。",
+      closing: "加入NETE｜讓每一次交易都成為價值的連接。",
     },
     modules: moduleTranslations["zh-TW"],
     landing: {
@@ -419,18 +451,34 @@ resources["zh-TW"] = {
       announcements: {
         aria: "NETE 公告欄",
         label: "公告",
+        close: "關閉公告",
+      },
+      bridge: {
+        aria: "機制與經濟模型銜接",
+        items: [
+          { title: "合約執行", desc: "規則自動觸發" },
+          { title: "產出釋放", desc: "按週期透明流轉" },
+          { title: "價值回流", desc: "銷毀與分配同步完成" },
+        ],
       },
       team: {
-        title: "技術團隊・可信執行",
-        desc: "EEA 聯盟成員，自主研發 VIA Protocol 與 Nete 平台，擁有全棧區塊鏈技術能力。",
+        title: "技術基因，2018年我們就已站在浪潮之巔",
+        desc: "EEA 聯盟成員，自主研發 VIA Protocol 與 Nete 平台，以全棧區塊鏈技術能力支撐生態長期運行。",
         items: [
           { title: "自主研發", desc: "核心協議、業務合約與前端交互統一圍繞鏈上透明規則構建。", tag: "VIA Protocol｜Nete 平台" },
           { title: "安全可信", desc: "以合約自動執行為基礎，提升參與、結算與數據同步可靠性。", tag: "全棧技術｜鏈上驗證" },
         ],
       },
       cta: {
-        title: "加入 NETE｜共建透明、可持續的鏈上價值生態",
-        subtitle: "從通縮經濟、礦機產出到社區自治，NETE 以透明規則連接傳統支付與 Web3 的未來。",
+        title: "NETE基金會 | 不是管理者，是守護者",
+        subtitle: "NETE Foundation不隸屬於任何單一商業實體，它以獨立、透明、非營利為原則，致力於：",
+        foundationItems: [
+          "維護NETE生態的長期健康發展",
+          "管理生態基金，支持開發者與創新項目",
+          "推動社區治理，逐步實現權力下放",
+          "連接傳統金融與Web3世界，降低准入門檻",
+        ],
+        closing: "加入NETE｜讓每一次交易都成為價值的連接。",
       },
     },
   }),
@@ -461,7 +509,7 @@ resources.ja = {
     },
     footer: {
       tagline: "従来型決済とWeb3をつなぐ透明で持続可能なエコシステム。",
-      closing: "NETE は従来型決済とWeb3をつなぐ透明で持続可能なエコシステムです。",
+      closing: "NETEに参加｜すべての取引を価値のつながりへ。",
     },
     modules: moduleTranslations.ja,
     landing: {
@@ -496,19 +544,35 @@ resources.ja = {
       announcements: {
         aria: "NETE お知らせ",
         label: "お知らせ",
+        close: "お知らせを閉じる",
+      },
+      bridge: {
+        aria: "仕組みと経済モデルの接続",
+        items: [
+          { title: "契約実行", desc: "ルールが自動で発動" },
+          { title: "産出リリース", desc: "周期ごとに透明に流通" },
+          { title: "価値還流", desc: "バーンと分配を同時完了" },
+        ],
       },
       team: {
         eyebrow: "// 技術チーム",
-        title: "技術チームと信頼できる実行",
-        desc: "EEAメンバーとして、VIA ProtocolとNeteプラットフォームを独自開発しています。",
+        title: "技術的DNA、2018年から波の先端へ",
+        desc: "EEAメンバーとして、VIA ProtocolとNeteプラットフォームを独自開発し、長期運用を支えます。",
         items: [
           { title: "独自開発", desc: "プロトコル、業務コントラクト、UIを透明なオンチェーンルールに沿って構築。", tag: "VIA Protocol｜Nete" },
           { title: "安全で信頼性の高い運用", desc: "自動実行により参加、精算、データ同期の信頼性を高めます。", tag: "フルスタック｜オンチェーン検証" },
         ],
       },
       cta: {
-        title: "NETEに参加し、透明で持続可能なオンチェーン価値を共に構築",
-        subtitle: "NETEは透明なルールで従来型決済とWeb3の未来をつなぎます。",
+        title: "NETE Foundation | 管理者ではなく守護者",
+        subtitle: "NETE Foundationは単一の商業主体に属さず、独立・透明・非営利を原則とします。",
+        foundationItems: [
+          "NETEエコシステムの長期的な健全性を維持",
+          "エコシステム基金を管理し開発者と革新を支援",
+          "コミュニティガバナンスと段階的な分散化を推進",
+          "従来型金融とWeb3をつなぎ参加障壁を下げる",
+        ],
+        closing: "NETEに参加｜すべての取引を価値のつながりへ。",
       },
     },
   }),
@@ -539,7 +603,7 @@ resources.ko = {
     },
     footer: {
       tagline: "전통 결제와 Web3를 연결하는 투명하고 지속 가능한 생태계.",
-      closing: "NETE는 전통 결제와 Web3를 연결하는 투명하고 지속 가능한 생태계입니다.",
+      closing: "NETE 참여｜모든 거래를 가치의 연결로.",
     },
     modules: moduleTranslations.ko,
     landing: {
@@ -574,19 +638,35 @@ resources.ko = {
       announcements: {
         aria: "NETE 공지",
         label: "공지",
+        close: "공지 닫기",
+      },
+      bridge: {
+        aria: "메커니즘과 경제 모델 연결",
+        items: [
+          { title: "컨트랙트 실행", desc: "규칙이 자동으로 작동" },
+          { title: "산출 릴리스", desc: "주기별 투명한 흐름" },
+          { title: "가치 환류", desc: "소각과 분배 동시 완료" },
+        ],
       },
       team: {
         eyebrow: "// 기술 팀",
-        title: "기술 팀과 신뢰 가능한 실행",
-        desc: "EEA 멤버로서 VIA Protocol과 Nete 플랫폼을 자체 개발합니다.",
+        title: "기술 DNA, 2018년부터 흐름의 최전선에",
+        desc: "EEA 멤버로서 VIA Protocol과 Nete 플랫폼을 자체 개발하고 장기 생태계 운영을 지원합니다.",
         items: [
           { title: "자체 개발", desc: "프로토콜, 비즈니스 컨트랙트, UI를 투명한 온체인 규칙 중심으로 구축합니다.", tag: "VIA Protocol｜Nete" },
           { title: "안전하고 신뢰 가능", desc: "자동 실행을 기반으로 참여, 정산, 데이터 동기화의 신뢰성을 높입니다.", tag: "풀스택｜온체인 검증" },
         ],
       },
       cta: {
-        title: "NETE와 함께 투명하고 지속 가능한 온체인 가치를 구축하세요",
-        subtitle: "NETE는 투명한 규칙으로 전통 결제와 Web3의 미래를 연결합니다.",
+        title: "NETE Foundation | 관리자가 아닌 수호자",
+        subtitle: "NETE Foundation은 단일 상업 주체에 속하지 않으며 독립성, 투명성, 비영리를 원칙으로 합니다.",
+        foundationItems: [
+          "NETE 생태계의 장기적 건강성 유지",
+          "생태계 펀드를 관리하고 개발자와 혁신 지원",
+          "커뮤니티 거버넌스와 점진적 분산화 추진",
+          "전통 금융과 Web3를 연결하고 진입 장벽 완화",
+        ],
+        closing: "NETE 참여｜모든 거래를 가치의 연결로.",
       },
     },
   }),

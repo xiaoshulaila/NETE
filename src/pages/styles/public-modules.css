@@ -225,6 +225,7 @@
   display: inline-grid;
   gap: 2px;
   line-height: 1.15;
+  text-align: center;
 }
 
 .team-table-head-label small {
@@ -293,7 +294,7 @@
 
 .my-account-row {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
   align-items: center;
   margin-top: 18px;
@@ -590,6 +591,19 @@
   background: rgba(255, 255, 255, 0.035);
 }
 
+.my-detail-head-label {
+  display: inline-grid;
+  gap: 1px;
+  line-height: 1.15;
+  text-align: center;
+}
+
+.my-detail-head-label small {
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 10px;
+  font-weight: 850;
+}
+
 .my-detail-row {
   border-top: 1px solid rgba(255, 255, 255, 0.07);
   color: rgba(255, 255, 255, 0.88);
@@ -634,13 +648,18 @@
 }
 
 .my-empty-state {
-  min-height: 82px;
-  display: grid;
-  place-items: center;
-  border-top: 1px solid rgba(255, 255, 255, 0.07);
+  min-height: 150px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 34px 16px;
+  border: 1px dashed rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
   color: var(--module-muted);
-  font-size: 13px;
-  font-weight: 850;
+  font-size: 14px;
+  font-weight: 800;
+  line-height: 1.6;
+  text-align: center;
 }
 
 .my-detail-list .data-loading-state--list {
@@ -878,6 +897,21 @@
   border: 1px solid var(--module-line);
   border-radius: var(--mining-radius);
   background: rgba(6, 9, 8, 0.42);
+}
+
+.module-empty-state {
+  margin: 18px;
+  padding: 34px 16px;
+  min-height: 150px;
+  border: 1px dashed rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  color: var(--module-muted);
+  font-size: 14px;
+  line-height: 1.6;
 }
 
 .module-table {
@@ -1605,14 +1639,14 @@
   align-items: center;
   justify-content: center;
   flex: 0 0 auto;
-  min-height: 24px;
-  padding: 0 9px;
+  height: 24px;
+  padding: 0 9px 1px;
   border-radius: 999px;
   background: rgba(118, 245, 196, 0.12);
   color: var(--seed-cyan);
   font-size: 11px;
   font-weight: 900;
-  line-height: 1;
+  line-height: 24px;
 }
 
 .seed-toast {
@@ -1937,7 +1971,7 @@
 
 .mining-checkin-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
 }
 
@@ -1947,11 +1981,158 @@
   gap: 8px;
 }
 
+.mining-checkin-action--main {
+  grid-column: 1 / -1;
+}
+
 .mining-checkin-hint {
   margin: 0;
   color: var(--mining-muted);
   font-size: 12px;
   line-height: 1.6;
+}
+
+.calendar-mask {
+  position: fixed;
+  inset: 0;
+  z-index: 560;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 18px;
+  background: rgba(2, 4, 3, 0.72);
+  backdrop-filter: blur(10px);
+}
+
+.calendar-mask.is-open {
+  display: flex;
+}
+
+.calendar-popup {
+  width: min(420px, 100%);
+  padding: 18px;
+  border: 1px solid rgba(202, 255, 0, 0.14);
+  border-radius: 16px;
+  background:
+    radial-gradient(circle at top right, rgba(202, 255, 0, 0.08), transparent 36%),
+    #111713;
+  color: var(--mining-text, #f4f7f4);
+  box-shadow: 0 28px 88px rgba(0, 0, 0, 0.6);
+}
+
+.calendar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.calendar-header span {
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 900;
+}
+
+.calendar-header button {
+  width: 32px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 24px;
+}
+
+.calendar-month {
+  margin-top: 14px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--mining-accent, #caff00);
+  font-size: 13px;
+  font-weight: 900;
+  text-align: center;
+}
+
+.calendar-week,
+.calendar-days {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 7px;
+}
+
+.calendar-week {
+  margin-top: 14px;
+  color: var(--mining-muted, #97a09a);
+  font-size: 11px;
+  font-weight: 850;
+  text-align: center;
+}
+
+.calendar-days {
+  margin-top: 8px;
+}
+
+.calendar-day {
+  position: relative;
+  aspect-ratio: 1;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.035);
+  color: #f7faf7;
+  font-size: 13px;
+  font-weight: 850;
+}
+
+.calendar-day.empty {
+  border-color: transparent;
+  background: transparent;
+}
+
+.check-icon {
+  position: absolute;
+  right: 5px;
+  bottom: 5px;
+  width: 16px;
+  height: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--mining-accent, #caff00);
+  color: #0b0f0a;
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 950;
+}
+
+.calendar-footer {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.calendar-footer div {
+  min-height: 42px;
+  display: grid;
+  place-items: center;
+  padding: 8px;
+  border-radius: 10px;
+  background: rgba(202, 255, 0, 0.08);
+  color: var(--mining-muted-strong, #c8cfca);
+  font-size: 12px;
+  font-weight: 800;
+  text-align: center;
+}
+
+.calendar-footer b {
+  color: var(--mining-accent, #caff00);
 }
 
 .mining-summary-strip {
@@ -2016,6 +2197,21 @@
   margin: 0;
   font-size: 22px;
   font-weight: 700;
+}
+
+.mining-model-title {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+  flex-wrap: wrap;
+  line-height: 1.18;
+}
+
+.mining-model-title small {
+  color: var(--mining-muted-strong);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0;
 }
 
 .mining-portfolio-item__meta {
@@ -2196,7 +2392,20 @@
 
 .mining-plan-action {
   display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
   justify-content: flex-end;
+}
+
+.mining-airdrop-gift {
+  margin: 0;
+  max-width: 220px;
+  color: #76f5c4;
+  font-size: 12px;
+  font-weight: 750;
+  line-height: 1.45;
+  text-align: right;
 }
 
 .mining-rules-grid {
@@ -2206,6 +2415,33 @@
 .mining-rule-card {
   padding: 16px;
   background: var(--mining-panel-strong);
+}
+
+.mining-rule-card summary {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  cursor: pointer;
+  list-style: none;
+}
+
+.mining-rule-card summary::-webkit-details-marker {
+  display: none;
+}
+
+.mining-rule-card summary svg {
+  color: var(--mining-muted-strong);
+  transition: transform 180ms ease, color 180ms ease;
+}
+
+.mining-rule-card[open] summary svg {
+  color: var(--mining-accent);
+  transform: rotate(180deg);
+}
+
+.mining-rule-card__body {
+  margin-top: 12px;
 }
 
 .mining-rule-card__index {
@@ -2222,7 +2458,7 @@
 }
 
 .mining-rule-card h4 {
-  margin: 10px 0 10px;
+  margin: 0;
   font-size: 18px;
 }
 
@@ -2264,6 +2500,11 @@
 
   .mining-plan-action {
     justify-content: flex-start;
+    align-items: flex-start;
+  }
+
+  .mining-airdrop-gift {
+    text-align: left;
   }
 }
 
@@ -2315,7 +2556,6 @@
   .mining-stats-strip,
   .mining-side-grid,
   .mining-checkin-grid,
-  .mining-checkin-actions,
   .mining-rules-grid {
     grid-template-columns: 1fr;
   }

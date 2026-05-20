@@ -20,6 +20,7 @@ import {
   readUserBalances,
   readUsdtMarketAllowance,
 } from "../../services/neteContracts";
+import { copyText } from "../../utils/clipboard";
 import { formatOrderNo, formatTokenAmount, parseTokenInput, shortAddress } from "../../utils/formatters";
 import "../styles/c2c.css";
 
@@ -243,7 +244,7 @@ export default function C2CMarketPage() {
       .filter((item) => isOrderOpen(item.status))
       .filter((item) => {
         if (!term) return true;
-        return toLower(item.shortOrderNo).includes(term) || toLower(item.orderNo).includes(term) || toLower(item.seller).includes(term);
+        return toLower(item.shortOrderNo).includes(term) || toLower(item.orderNo).includes(term);
       });
   }, [publicOrders, searchKeyword]);
 
@@ -297,8 +298,8 @@ export default function C2CMarketPage() {
     if (!orderNo || orderNo === "--") return;
 
     try {
-      await navigator.clipboard.writeText(orderNo);
-      setToastMessage(t("modules.c2cMarket.messages.orderCopied"));
+      const copied = await copyText(orderNo);
+      setToastMessage(copied ? t("modules.c2cMarket.messages.orderCopied") : orderNo);
     } catch {
       setToastMessage(orderNo);
     }
@@ -440,6 +441,21 @@ export default function C2CMarketPage() {
   return (
     <C2CPageFrame zone="self">
       <section className="c2c-market-shell">
+        <section className="c2c-market-hero" aria-label={t("modules.c2cMarket.heroTitle")}>
+          <div>
+            <p className="c2c-eyebrow">NETE C2C</p>
+            <h1>{t("modules.c2cMarket.heroTitle")}</h1>
+          </div>
+          <ul>
+            {t("modules.c2cMarket.heroRules", { returnObjects: true }).map((rule, index) => (
+              <li key={rule}>
+                <span>{String(index + 1).padStart(2, "0")}</span>
+                <p>{rule}</p>
+              </li>
+            ))}
+          </ul>
+        </section>
+
         <div className="c2c-market-tabs" role="tablist" aria-label={t("modules.c2cMarket.ariaTabs")}>
           {marketTabs.map((tab) => (
             <button

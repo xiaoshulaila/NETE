@@ -1675,6 +1675,12 @@
         "internalType": "uint256"
       },
       {
+        "name": "fromProfitPool",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
         "name": "fromWallet",
         "type": "uint256",
         "indexed": false,

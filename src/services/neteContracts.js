@@ -1,5 +1,5 @@
-import { readContract, waitForTransactionReceipt, writeContract } from "wagmi/actions";
-import { decodeEventLog, formatUnits } from "viem";
+import { getPublicClient, readContract, waitForTransactionReceipt, writeContract } from "wagmi/actions";
+import { decodeEventLog, formatUnits, parseAbiItem } from "viem";
 import mockUsdtAbi from "../abis/MockUSDT.json";
 import neteCoreAbi from "../abis/NeteCore.json";
 import neteMarketAbi from "../abis/NeteMarket.json";
@@ -12,6 +12,7 @@ import { wagmiConfig } from "../web3/wagmiConfig";
 const ONE_18 = 10n ** 18n;
 const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
 const BUY_SEED_GAS_LIMIT = 1_500_000n;
+const CHECKED_IN_EVENT = parseAbiItem("event CheckedIn(address indexed user,uint256 amount,uint256 checkinAt)");
 const erc721BalanceAbi = [
   {
     type: "function",
@@ -311,10 +312,12 @@ export async function readUserMiningData(user) {
         totalReturn: position.totalReturn,
         grossClaimed: position.grossClaimed,
         principalRecovered: position.principalRecovered,
+        accelClaimed: position.accelClaimed ?? 0n,
         currentPeriod: Number(position.currentPeriod),
         state: Number(position.state),
         isAirdrop: Boolean(position.isAirdrop),
         startAt: Number(position.startAt),
+        originStartAt: Number(position.originStartAt ?? 0n),
         endAt: Number(position.endAt),
         pendingReward,
         profit,
@@ -342,6 +345,28 @@ export async function readUserMiningData(user) {
     },
     positions: rows.sort((a, b) => Number(b.positionId) - Number(a.positionId)),
   };
+}
+
+export async function readCheckInRecords(user) {
+  if (!user) return [];
+  const coreAddress = assertContractAddress("neteCore");
+  const publicClient = getPublicClient(wagmiConfig, { chainId: NETE_CHAIN_ID });
+  const logs = await publicClient.getLogs({
+    address: coreAddress,
+    event: CHECKED_IN_EVENT,
+    args: { user },
+    fromBlock: 0n,
+    toBlock: "latest",
+  });
+
+  return logs
+    .map((log) => ({
+      id: `${log.transactionHash}-${log.logIndex}`,
+      amount: log.args.amount ?? 0n,
+      checkinAt: Number(log.args.checkinAt ?? 0n),
+      transactionHash: log.transactionHash,
+    }))
+    .sort((a, b) => b.checkinAt - a.checkinAt);
 }
 
 export async function readNetworkUserData(user) {
@@ -444,6 +469,16 @@ export async function repurchaseExpiredMiners(account) {
   });
 }
 
+export async function repurchaseExpiredMinersWithMode(account, payMode) {
+  return send({
+    account,
+    address: assertContractAddress("neteCore"),
+    abi: neteCoreAbi,
+    functionName: "repurchaseExpiredMinersWithMode",
+    args: [Number(payMode)],
+  });
+}
+
 export async function repurchaseMiner(account, positionId) {
   return send({
     account,
@@ -451,6 +486,16 @@ export async function repurchaseMiner(account, positionId) {
     abi: neteCoreAbi,
     functionName: "repurchase",
     args: [toBigInt(positionId)],
+  });
+}
+
+export async function repurchaseMinerWithMode(account, positionId, payMode) {
+  return send({
+    account,
+    address: assertContractAddress("neteCore"),
+    abi: neteCoreAbi,
+    functionName: "repurchaseWithMode",
+    args: [toBigInt(positionId), Number(payMode)],
   });
 }
 

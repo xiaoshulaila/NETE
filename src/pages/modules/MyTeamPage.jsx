@@ -183,8 +183,10 @@ export default function MyTeamPage() {
 
     if (directMembers.length === 0) {
       return (
-        <tr>
-          <td colSpan={4} className="text-center text-white/65">{t("modules.team.emptyIncomeDetails")}</td>
+        <tr className="team-empty-row">
+          <td colSpan={4}>
+            <div className="module-empty-state">{t("modules.team.emptyIncomeDetails")}</div>
+          </td>
         </tr>
       );
     }

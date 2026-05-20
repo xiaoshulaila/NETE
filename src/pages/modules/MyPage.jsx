@@ -5,6 +5,7 @@ import LoadingState from "../../components/common/LoadingState";
 import { useWalletConnector } from "../../hooks/useWalletConnector";
 import { getClaimMessage, getIncomeLedger, getIncomeOverview, getPerformanceLegs, getReferralInfo } from "../../services/neteApi";
 import { claimWithSignature, readNetworkUserData, readUserBalances, readUserMiningData } from "../../services/neteContracts";
+import { copyText } from "../../utils/clipboard";
 import { formatTokenAmount, formatUnixTime, shortAddress } from "../../utils/formatters";
 
 const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
@@ -38,20 +39,94 @@ function normalizeReferrer(value) {
   return address && address.toLowerCase() !== ZERO_ADDRESS ? address : "";
 }
 
+function getLedgerAmount(row) {
+  const primaryFields = [
+    row?.amount,
+    row?.delta,
+    row?.value,
+    row?.gross_reward,
+    row?.grossReward,
+    row?.profit_gross,
+    row?.profitGross,
+    row?.profit_net,
+    row?.profitNet,
+  ];
+  const directAmount = primaryFields.find((value) => value !== undefined && value !== null && value !== "");
+
+  if (directAmount !== undefined) {
+    const parsed = toBigIntSafe(directAmount);
+    if (parsed !== 0n) return parsed;
+  }
+
+  return toBigIntSafe(row?.principal_part ?? row?.principalPart)
+    + toBigIntSafe(row?.profit_part ?? row?.profitPart)
+    + toBigIntSafe(row?.accel_income ?? row?.accelIncome);
+}
+
+function getLedgerType(row) {
+  const type = String(row?.type ?? row?.biz_type ?? row?.category ?? row?.event_type ?? row?.reward_type ?? "").trim();
+  if (type && type !== "--") return type;
+  if (row?.position_id || row?.positionId) return "矿机收益";
+  return "--";
+}
+
+function formatBeijingTime(seconds) {
+  const value = Number(seconds || 0);
+  if (!Number.isFinite(value) || value <= 0) return "--";
+  const date = new Date(value * 1000);
+  if (Number.isNaN(date.getTime())) return "--";
+  return date.toLocaleString("zh-CN", { hour12: false, timeZone: "Asia/Shanghai" });
+}
+
+function getLedgerTimeText(row) {
+  const epochDay = Number(row?.epoch_day ?? row?.epochDay ?? 0);
+  if (Number.isFinite(epochDay) && epochDay > 0) {
+    return formatBeijingTime(epochDay * 24 * 60 * 60);
+  }
+
+  const seconds = Number(row?.created_at ?? row?.createdAt ?? row?.claimed_at ?? row?.claimedAt ?? row?.settled_at ?? row?.settledAt ?? row?.timestamp ?? 0);
+  return formatBeijingTime(seconds);
+}
+
 function normalizeLedgerRow(row, index) {
-  const amountRaw = row?.amount ?? row?.delta ?? row?.value ?? "0";
-  const amountBigInt = toBigIntSafe(amountRaw);
+  const amountBigInt = getLedgerAmount(row);
   const signedText = amountBigInt < 0n ? "-" : "+";
   const amountText = `${signedText}${formatTokenAmount(amountBigInt < 0n ? -amountBigInt : amountBigInt, 18, 6)}`;
 
   return {
     id: `${row?.id ?? row?.tx_hash ?? row?.txHash ?? "row"}-${index}`,
-    createdAt: Number(row?.created_at ?? row?.createdAt ?? row?.timestamp ?? 0),
-    type: String(row?.type ?? row?.biz_type ?? row?.category ?? "--"),
+    createdAtText: getLedgerTimeText(row),
+    type: getLedgerType(row),
     amountText,
     balanceText: formatTokenAmount(row?.balance ?? row?.remain ?? 0n, 18, 6),
     txHash: String(row?.tx_hash ?? row?.txHash ?? row?.tx ?? "--"),
   };
+}
+
+function isEmptyLedgerRow(row) {
+  const type = getLedgerType(row);
+  const txHash = String(row?.tx_hash ?? row?.txHash ?? row?.tx ?? "").trim();
+  const createdAt = Number(row?.epoch_day ?? row?.epochDay ?? row?.created_at ?? row?.createdAt ?? row?.claimed_at ?? row?.claimedAt ?? row?.settled_at ?? row?.settledAt ?? row?.timestamp ?? 0);
+  const positionId = String(row?.position_id ?? row?.positionId ?? "").trim();
+
+  return getLedgerAmount(row) === 0n
+    && (!type || type === "--")
+    && (!txHash || txHash === "--")
+    && !createdAt
+    && !positionId;
+}
+
+function renderMetricHeader(label) {
+  const text = String(label ?? "");
+  const match = text.match(/^(.*?)(?:（(.+)）|\s*\((.+)\))$/);
+  if (!match) return text;
+
+  return (
+    <span className="my-detail-head-label">
+      <span>{match[1]}</span>
+      <small>{match[2] || match[3]}</small>
+    </span>
+  );
 }
 
 export default function MyPage() {
@@ -120,7 +195,7 @@ export default function MyPage() {
   });
 
   const ledgerRows = useMemo(
-    () => toItems(incomeLedgerQuery.data).map(normalizeLedgerRow),
+    () => toItems(incomeLedgerQuery.data).filter((row) => !isEmptyLedgerRow(row)).map(normalizeLedgerRow),
     [incomeLedgerQuery.data],
   );
 
@@ -131,7 +206,6 @@ export default function MyPage() {
   const network = networkDataQuery.data || {};
   const miningData = miningDataQuery.data || {};
   const referralAccount = network.referralAccount || {};
-  const currentLevel = performanceLegs.user_level ?? referral.user_level ?? overview.user_level ?? network.userLevel ?? 0;
   const joinedAt = Number(pickAccountField(referralAccount, "updatedAt", 3) || 0);
   const referrerAddress = normalizeReferrer(
     pickAccountField(referralAccount, "referrer", 0)
@@ -183,8 +257,8 @@ export default function MyPage() {
   const copyInviteLink = async () => {
     if (!wallet.currentAddress || inviteLink === "--") return;
     try {
-      await navigator.clipboard.writeText(inviteLink);
-      setCopyNotice(t("modules.my.messages.copied"));
+      const copied = await copyText(inviteLink);
+      setCopyNotice(copied ? t("modules.my.messages.copied") : inviteLink);
     } catch {
       setCopyNotice(inviteLink);
     }
@@ -244,10 +318,6 @@ export default function MyPage() {
             <article className="my-account-chip">
               <span className="my-account-label">{t("modules.my.summary.referrer")}</span>
               <strong>{wallet.isConnected ? (referrerAddress ? shortAddress(referrerAddress) : t("modules.my.unbound")) : t("modules.my.disconnected")}</strong>
-            </article>
-            <article className="my-account-chip my-account-chip--vip">
-              <span className="my-account-label">{t("modules.my.summary.level")}</span>
-              <strong>V{currentLevel}</strong>
             </article>
           </div>
         </div>
@@ -334,26 +404,28 @@ export default function MyPage() {
         </div>
 
         <div className="my-history-list">
-          <div className="my-detail-list">
-            <div className="my-detail-head">
-              <span>{t("modules.my.type")}</span>
-              <span>{t("modules.my.amount")}</span>
-              <span>{t("modules.my.claimTime")}</span>
-            </div>
-            {incomeLedgerQuery.isLoading ? (
+          {incomeLedgerQuery.isLoading ? (
+            <div className="my-detail-list">
               <LoadingState variant="list" rows={4} cells={3} />
-            ) : ledgerRows.length === 0 ? (
-              <div className="my-empty-state">{t("modules.my.emptyLedger")}</div>
-            ) : (
-              ledgerRows.map((row) => (
+            </div>
+          ) : ledgerRows.length === 0 ? (
+            <div className="my-empty-state">{t("modules.my.emptyLedger")}</div>
+          ) : (
+            <div className="my-detail-list">
+              <div className="my-detail-head">
+                <span>{t("modules.my.type")}</span>
+                <span>{renderMetricHeader(t("modules.my.amount"))}</span>
+                <span>{t("modules.my.claimTime")}</span>
+              </div>
+              {ledgerRows.map((row) => (
                 <div className="my-detail-row" key={row.id}>
                   <span className="my-type-badge">{row.type}</span>
                   <strong className={row.amountText.startsWith("-") ? "is-negative" : ""}>{row.amountText}</strong>
-                  <span>{row.createdAt ? formatUnixTime(row.createdAt) : "--"}</span>
+                  <span>{row.createdAtText}</span>
                 </div>
-              ))
-            )}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
       </section>
     </section>

@@ -16,7 +16,6 @@ export default function FooterSection() {
               </span>
               NETE
             </NavLink>
-            <p>{t("footer.tagline")}</p>
           </div>
         </div>
 
