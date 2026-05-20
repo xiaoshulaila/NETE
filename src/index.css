@@ -788,7 +788,7 @@ button {
   min-height: 100svh;
   padding-top: 0;
   display: grid;
-  place-items: center;
+  place-items: start center;
   position: relative;
   overflow: hidden; /* Overflow Hidden */
   isolation: isolate; /* Stacking Context */
@@ -824,14 +824,14 @@ button {
 .hero__inner {
   display: grid;
   grid-template-columns: 1fr;
-  gap: var(--space-16);
+  gap: clamp(38px, 7svh, 64px);
   align-items: center;
-  padding-block: var(--space-16);
+  padding-block: clamp(34px, 7svh, 72px) 24px;
   width: 100%;
 }
 
 .hero__content {
-  text-align: center;
+  text-align: left;
 }
 
 .hero__badge {
@@ -869,7 +869,9 @@ button {
   margin-bottom: var(--space-6);
   animation: fadeInUp 0.9s 0.1s var(--ease-out-expo) both;
 }
+
 .hero__title_p{
+  padding-block: var(--space-4);
   font-size: clamp(var(--text-xl), 3vw, var(--text-xl));
 }
 
@@ -885,7 +887,7 @@ button {
   font-size: clamp(var(--text-base), 2vw, var(--text-lg));
   color: var(--color-muted);
   max-width: 520px;
-  margin-inline: auto;
+  margin-inline: 0;
   margin-bottom: var(--space-10);
   line-height: 1.7;
   animation: fadeInUp 1s 0.2s var(--ease-out-expo) both;
@@ -894,7 +896,7 @@ button {
 .hero__actions {
   display: flex;
   gap: var(--space-4);
-  justify-content: center;
+  justify-content: flex-start;
   flex-wrap: wrap;
   animation: fadeInUp 1s 0.3s var(--ease-out-expo) both;
 }
@@ -2551,7 +2553,7 @@ button {
 @media (max-width: 899px) {
   .hero__inner {
     gap: var(--space-10);
-    padding-block: var(--space-12);
+    padding-top: var(--space-16);
   }
 
   .hero__phones {
@@ -2563,7 +2565,7 @@ button {
 
   .hero__video-wrap {
     width: min(100%, 470px);
-    height: min(44svh, 430px);
+    height: min(50svh, 400px);
     border-radius: 26px;
   }
 
@@ -2699,15 +2701,15 @@ button {
 }
 
 .hero__content {
-  text-align: center;
+  text-align: left;
 }
 
 .hero__subtitle {
-  margin-inline: auto;
+  margin-inline: 0;
 }
 
 .hero__actions {
-  justify-content: center;
+  justify-content: flex-start;
 }
 
 .footer__desktop-links {

@@ -250,7 +250,7 @@ export default function MyPage() {
     { key: "referral", label: t("modules.my.summary.referral"), amount: overview.pending_referral ?? 0n, labelKey: "modules.my.claimActions.referral" },
     { key: "dividend", label: t("modules.my.summary.dividend"), amount: overview.pending_dividend ?? 0n, labelKey: "modules.my.claimActions.dividend" },
     { key: "v9", label: t("modules.my.summary.v9"), amount: overview.pending_v9 ?? 0n, labelKey: "modules.my.claimActions.v9" },
-  ], [overview.pending_dividend, overview.pending_referral, overview.pending_v9, t]);
+  ].map((row) => ({ ...row, claimable: toBigIntSafe(row.amount) > 0n })), [overview.pending_dividend, overview.pending_referral, overview.pending_v9, t]);
 
   const loading = incomeOverviewQuery.isLoading || referralInfoQuery.isLoading || performanceLegsQuery.isLoading || balancesQuery.isLoading || miningDataQuery.isLoading;
 
@@ -265,6 +265,9 @@ export default function MyPage() {
   };
 
   const handleClaim = async (type) => {
+    const target = claimRows.find((row) => row.key === type);
+    if (!target?.claimable) return;
+
     if (!wallet.isConnected) {
       setNotice(t("modules.my.messages.connectWallet"));
       return;
@@ -379,7 +382,7 @@ export default function MyPage() {
               <strong>{formatTokenAmount(row.amount, 18, 4)} NETE</strong>
               <button
                 type="button"
-                disabled={claimingType === row.key || Boolean(claimingType) || !wallet.isConnected}
+                disabled={!row.claimable || claimingType === row.key || Boolean(claimingType) || !wallet.isConnected}
                 onClick={() => handleClaim(row.key)}
                 aria-label={t(row.labelKey)}
               >

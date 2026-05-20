@@ -22,7 +22,6 @@ export default function HeroSection() {
 
             <h1 className="hero__title" id="hero-title">
               <span className="hero__title-line--acid">NETE</span>
-              {/* <span className="hero__title-line--acid">{t("landing.hero.titleA")}</span> */}
               <p className="hero__title_p">
                 <span>链接传统支付</span>
                 <span className="hero__title-line--muted"> Web3 </span>的
@@ -39,6 +38,7 @@ export default function HeroSection() {
               </button>
               <button className="btn btn--ghost btn--sm">
                 {t("landing.hero.secondary")}
+                <Icon className="hero__action-icon" icon="mdi:arrow-right" aria-hidden="true" />
               </button>
             </div>
           </div>
