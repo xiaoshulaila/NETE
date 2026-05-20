@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import LoadingState from "../../components/common/LoadingState";
@@ -9,12 +9,29 @@ import { copyText } from "../../utils/clipboard";
 import { formatTokenAmount, formatUnixTime, shortAddress } from "../../utils/formatters";
 
 const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
+const LEDGER_PAGE_SIZE = 10;
 
 function toItems(payload) {
   if (Array.isArray(payload)) return payload;
   if (Array.isArray(payload?.items)) return payload.items;
   if (Array.isArray(payload?.data?.items)) return payload.data.items;
   return [];
+}
+
+function toTotalCount(payload) {
+  const candidates = [
+    payload?.total,
+    payload?.total_count,
+    payload?.totalCount,
+    payload?.count,
+    payload?.data?.total,
+    payload?.data?.total_count,
+    payload?.data?.totalCount,
+    payload?.pagination?.total,
+    payload?.data?.pagination?.total,
+  ];
+  const total = candidates.map(Number).find((value) => Number.isFinite(value) && value >= 0);
+  return total ?? 0;
 }
 
 function toBigIntSafe(value) {
@@ -63,10 +80,20 @@ function getLedgerAmount(row) {
     + toBigIntSafe(row?.accel_income ?? row?.accelIncome);
 }
 
-function getLedgerType(row) {
+function getLedgerType(row, t) {
   const type = String(row?.type ?? row?.biz_type ?? row?.category ?? row?.event_type ?? row?.reward_type ?? "").trim();
+  const normalizedType = type.toLowerCase();
+
+  if (["矿机收益", "mining_income", "miner_income", "miner reward", "miner rewards"].includes(normalizedType)) {
+    return t("modules.my.ledgerTypes.minerIncome");
+  }
+
+  if (["收益", "income", "profit", "reward", "rewards"].includes(normalizedType)) {
+    return t("modules.my.ledgerTypes.income");
+  }
+
   if (type && type !== "--") return type;
-  if (row?.position_id || row?.positionId) return "矿机收益";
+  if (row?.position_id || row?.positionId) return t("modules.my.ledgerTypes.minerIncome");
   return "--";
 }
 
@@ -88,7 +115,7 @@ function getLedgerTimeText(row) {
   return formatBeijingTime(seconds);
 }
 
-function normalizeLedgerRow(row, index) {
+function normalizeLedgerRow(row, index, t) {
   const amountBigInt = getLedgerAmount(row);
   const signedText = amountBigInt < 0n ? "-" : "+";
   const amountText = `${signedText}${formatTokenAmount(amountBigInt < 0n ? -amountBigInt : amountBigInt, 18, 6)}`;
@@ -96,7 +123,7 @@ function normalizeLedgerRow(row, index) {
   return {
     id: `${row?.id ?? row?.tx_hash ?? row?.txHash ?? "row"}-${index}`,
     createdAtText: getLedgerTimeText(row),
-    type: getLedgerType(row),
+    type: getLedgerType(row, t),
     amountText,
     balanceText: formatTokenAmount(row?.balance ?? row?.remain ?? 0n, 18, 6),
     txHash: String(row?.tx_hash ?? row?.txHash ?? row?.tx ?? "--"),
@@ -104,7 +131,7 @@ function normalizeLedgerRow(row, index) {
 }
 
 function isEmptyLedgerRow(row) {
-  const type = getLedgerType(row);
+  const type = String(row?.type ?? row?.biz_type ?? row?.category ?? row?.event_type ?? row?.reward_type ?? "").trim();
   const txHash = String(row?.tx_hash ?? row?.txHash ?? row?.tx ?? "").trim();
   const createdAt = Number(row?.epoch_day ?? row?.epochDay ?? row?.created_at ?? row?.createdAt ?? row?.claimed_at ?? row?.claimedAt ?? row?.settled_at ?? row?.settledAt ?? row?.timestamp ?? 0);
   const positionId = String(row?.position_id ?? row?.positionId ?? "").trim();
@@ -116,19 +143,6 @@ function isEmptyLedgerRow(row) {
     && !positionId;
 }
 
-function renderMetricHeader(label) {
-  const text = String(label ?? "");
-  const match = text.match(/^(.*?)(?:（(.+)）|\s*\((.+)\))$/);
-  if (!match) return text;
-
-  return (
-    <span className="my-detail-head-label">
-      <span>{match[1]}</span>
-      <small>{match[2] || match[3]}</small>
-    </span>
-  );
-}
-
 export default function MyPage() {
   const { t } = useTranslation();
   const wallet = useWalletConnector();
@@ -137,6 +151,7 @@ export default function MyPage() {
   const [notice, setNotice] = useState("");
   const [copyNotice, setCopyNotice] = useState("");
   const [lastClaimInfo, setLastClaimInfo] = useState(null);
+  const [ledgerPage, setLedgerPage] = useState(1);
 
   const incomeOverviewQuery = useQuery({
     queryKey: ["nete", "income-overview", wallet.currentAddress],
@@ -147,8 +162,8 @@ export default function MyPage() {
   });
 
   const incomeLedgerQuery = useQuery({
-    queryKey: ["nete", "income-ledger", wallet.currentAddress],
-    queryFn: () => getIncomeLedger(wallet.currentAddress, { page: 1, pageSize: 30 }),
+    queryKey: ["nete", "income-ledger", wallet.currentAddress, ledgerPage],
+    queryFn: () => getIncomeLedger(wallet.currentAddress, { page: ledgerPage, pageSize: LEDGER_PAGE_SIZE }),
     enabled: Boolean(wallet.currentAddress),
     staleTime: 10_000,
     retry: 1,
@@ -194,9 +209,36 @@ export default function MyPage() {
     retry: 1,
   });
 
-  const ledgerRows = useMemo(
-    () => toItems(incomeLedgerQuery.data).filter((row) => !isEmptyLedgerRow(row)).map(normalizeLedgerRow),
+  useEffect(() => {
+    setLedgerPage(1);
+  }, [wallet.currentAddress]);
+
+  const rawLedgerRows = useMemo(
+    () => toItems(incomeLedgerQuery.data).filter((row) => !isEmptyLedgerRow(row)),
     [incomeLedgerQuery.data],
+  );
+  const ledgerTotalCount = toTotalCount(incomeLedgerQuery.data);
+  const clientPaginatedLedger = rawLedgerRows.length > LEDGER_PAGE_SIZE;
+  const ledgerTotalPages = ledgerTotalCount > 0
+    ? Math.max(1, Math.ceil(ledgerTotalCount / LEDGER_PAGE_SIZE))
+    : clientPaginatedLedger
+      ? Math.max(1, Math.ceil(rawLedgerRows.length / LEDGER_PAGE_SIZE))
+      : 0;
+  const ledgerRows = useMemo(
+    () => {
+      const rows = clientPaginatedLedger
+        ? rawLedgerRows.slice((ledgerPage - 1) * LEDGER_PAGE_SIZE, ledgerPage * LEDGER_PAGE_SIZE)
+        : rawLedgerRows;
+      return rows.map((row, index) => normalizeLedgerRow(row, index, t));
+    },
+    [clientPaginatedLedger, ledgerPage, rawLedgerRows, t],
+  );
+  const hasLedgerPagination = ledgerPage > 1 || ledgerTotalPages > 1 || rawLedgerRows.length >= LEDGER_PAGE_SIZE;
+  const canLedgerPrev = ledgerPage > 1 && !incomeLedgerQuery.isFetching;
+  const canLedgerNext = !incomeLedgerQuery.isFetching && (
+    ledgerTotalPages > 0
+      ? ledgerPage < ledgerTotalPages
+      : rawLedgerRows.length === LEDGER_PAGE_SIZE
   );
 
   const overview = incomeOverviewQuery.data || {};
@@ -415,20 +457,40 @@ export default function MyPage() {
             <div className="my-empty-state">{t("modules.my.emptyLedger")}</div>
           ) : (
             <div className="my-detail-list">
-              <div className="my-detail-head">
-                <span>{t("modules.my.type")}</span>
-                <span>{renderMetricHeader(t("modules.my.amount"))}</span>
-                <span>{t("modules.my.claimTime")}</span>
-              </div>
               {ledgerRows.map((row) => (
                 <div className="my-detail-row" key={row.id}>
-                  <span className="my-type-badge">{row.type}</span>
+                  <div className="my-detail-row__info">
+                    <span className="my-type-badge">{row.type}</span>
+                    <time>{row.createdAtText}</time>
+                  </div>
                   <strong className={row.amountText.startsWith("-") ? "is-negative" : ""}>{row.amountText}</strong>
-                  <span>{row.createdAtText}</span>
                 </div>
               ))}
             </div>
           )}
+          {hasLedgerPagination ? (
+            <div className="my-detail-pagination" aria-label={t("modules.my.pagination.label")}>
+              <button
+                type="button"
+                disabled={!canLedgerPrev}
+                onClick={() => setLedgerPage((page) => Math.max(1, page - 1))}
+              >
+                {t("modules.my.pagination.prev")}
+              </button>
+              <span>
+                {ledgerTotalPages > 0
+                  ? t("modules.my.pagination.pageWithTotal", { page: ledgerPage, total: ledgerTotalPages })
+                  : t("modules.my.pagination.page", { page: ledgerPage })}
+              </span>
+              <button
+                type="button"
+                disabled={!canLedgerNext}
+                onClick={() => setLedgerPage((page) => page + 1)}
+              >
+                {t("modules.my.pagination.next")}
+              </button>
+            </div>
+          ) : null}
         </div>
       </section>
     </section>

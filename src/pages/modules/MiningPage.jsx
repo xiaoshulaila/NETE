@@ -88,11 +88,19 @@ function getPositionCycleDays(tier, position) {
 }
 
 function getMinerModelSuffix(amount, t) {
-  if (amount === 100) return t("modules.mining.buy.modelSuffix.starter");
+  if (amount === 30 || amount === 100) return t("modules.mining.buy.modelSuffix.starter");
   if (amount === 300 || amount === 500) return t("modules.mining.buy.modelSuffix.classic");
   if (amount === 1000 || amount === 3000) return t("modules.mining.buy.modelSuffix.hot");
   if ([5000, 10000, 30000, 50000].includes(amount)) return t("modules.mining.buy.modelSuffix.advanced");
   return "";
+}
+
+function getMinerModelSuffixTone(amount) {
+  if (amount === 30 || amount === 100) return "starter";
+  if (amount === 300 || amount === 500) return "classic";
+  if (amount === 1000 || amount === 3000) return "hot";
+  if ([5000, 10000, 30000, 50000].includes(amount)) return "advanced";
+  return "default";
 }
 
 function getMinerModelName(amountText, t) {
@@ -105,7 +113,11 @@ function getMinerModelParts(amountText, t) {
   const amount = Number(String(amountText || "").replace(/,/g, ""));
   return {
     base: `${amountText}型·${amountText}NETE`,
+    titleName: `${amountText}型`,
+    titleAmount: amountText,
+    picker: `${amountText}型`,
     suffix: getMinerModelSuffix(amount, t),
+    suffixTone: getMinerModelSuffixTone(amount),
   };
 }
 
@@ -205,7 +217,12 @@ export default function MiningPage() {
         return {
           model: getMinerModelName(amountText, t),
           modelBase: modelParts.base,
+          modelTitleName: modelParts.titleName,
+          modelTitleAmount: modelParts.titleAmount,
+          modelPicker: modelParts.picker,
           modelSuffix: modelParts.suffix,
+          modelSuffixTone: modelParts.suffixTone,
+          hideModelSuffix: isAirdrop,
           badge: isAirdrop ? t("modules.mining.buy.airdropBadge") : "",
           price: Number(tier.principalText),
           principalWei: tier.principal,
@@ -255,7 +272,12 @@ export default function MiningPage() {
       return {
         model: tier?.model || `T${position.tierIndex}`,
         modelBase: tier?.modelBase || tier?.model || `T${position.tierIndex}`,
+        modelTitleName: tier?.modelTitleName || tier?.modelBase || tier?.model || `T${position.tierIndex}`,
+        modelTitleAmount: tier?.modelTitleAmount || "",
+        modelPicker: tier?.modelPicker || tier?.modelBase || tier?.model || `T${position.tierIndex}`,
         modelSuffix: tier?.modelSuffix || "",
+        modelSuffixTone: tier?.modelSuffixTone || "default",
+        hideModelSuffix: Boolean(tier?.hideModelSuffix || position.isAirdrop),
         quantity: 1,
         cycleProgress: t("modules.mining.units.positionProgress", { current: cycleCurrent, total: cycleTotal }),
         output: formatTokenAmount(claimedTotalWei, 18, 4),
@@ -337,9 +359,13 @@ export default function MiningPage() {
     const month = now.getMonth();
     const firstDay = new Date(year, month, 1).getDay();
     const totalDays = new Date(year, month + 1, 0).getDate();
+    const signedDates = [
+      ...checkInRecords.map((item) => Number(item.checkinAt || 0)),
+      lastCheckinAt,
+    ].filter((value) => Number.isFinite(value) && value > 0);
     const signedDays = new Set(
-      checkInRecords
-        .map((item) => new Date(Number(item.checkinAt || 0) * 1000))
+      signedDates
+        .map((value) => new Date(value * 1000))
         .filter((date) => date.getFullYear() === year && date.getMonth() === month)
         .map((date) => date.getDate()),
     );
@@ -357,17 +383,12 @@ export default function MiningPage() {
       cells,
       signedCount: signedDays.size,
     };
-  }, [checkInRecords]);
+  }, [checkInRecords, lastCheckinAt]);
   const airdropHidden = hasAirdropMiner || airdropNftClaimed;
   const visibleMachineModels = useMemo(
     () => machineModels.filter((model) => !model.isAirdrop || !airdropHidden),
     [airdropHidden, machineModels],
   );
-  const firstPaidMachineModel = useMemo(
-    () => machineModels.find((model) => !model.isAirdrop),
-    [machineModels],
-  );
-
   const projectedCost = useMemo(() => {
     if (!selectedModel || !isAmountValid) return 0;
     return selectedModel.price * amountValue;
@@ -460,7 +481,7 @@ export default function MiningPage() {
     const rows = repurchaseTarget.mode === REPURCHASE_MODES.all
       ? batchRepurchasableMinerRows
       : portfolioRows.filter((item) => item.positionId === repurchaseTarget.positionId && item.canRepurchase);
-    const amountWei = rows.reduce((sum, item) => sum + (item.principalWei || 0n), 0n);
+    const amountWei = rows.reduce((sum, item) => sum + (item.isAirdrop ? 0n : (item.principalWei || 0n)), 0n);
 
     return {
       ...repurchaseTarget,
@@ -476,6 +497,7 @@ export default function MiningPage() {
   const canCheckInWithBABT = wallet.isConnected && !actionBusy && !hasAnyMinerPosition && hasRequiredAirdropNft && checkinRewardAmount > 0n;
   const canWithdrawCheckinProfit = wallet.isConnected && !actionBusy && checkinProfitBalance >= MIN_VISIBLE_NETE_WEI;
   const repurchaseRequiredWei = repurchaseContext?.amountWei || 0n;
+  const repurchaseRowCount = repurchaseContext?.rows.length || 0;
   const repurchaseWalletShortfall = useMemo(() => {
     if (repurchasePayMode === REPURCHASE_PAY_MODES.wallet) return repurchaseRequiredWei;
     if (repurchasePayMode === REPURCHASE_PAY_MODES.auto) {
@@ -484,18 +506,17 @@ export default function MiningPage() {
     return 0n;
   }, [principalPoolBalance, profitPoolBalance, repurchasePayMode, repurchaseRequiredWei]);
   const repurchaseBalanceEnough = useMemo(() => {
-    if (repurchaseRequiredWei <= 0n) return false;
+    if (repurchaseRequiredWei <= 0n) return repurchaseRowCount > 0;
     if (repurchasePayMode === REPURCHASE_PAY_MODES.principal) return principalPoolBalance >= repurchaseRequiredWei;
     if (repurchasePayMode === REPURCHASE_PAY_MODES.wallet) return chainNeteBalance >= repurchaseRequiredWei;
     if (repurchasePayMode === REPURCHASE_PAY_MODES.profit) return profitPoolBalance >= repurchaseRequiredWei;
     return principalPoolBalance + profitPoolBalance + chainNeteBalance >= repurchaseRequiredWei;
-  }, [chainNeteBalance, principalPoolBalance, profitPoolBalance, repurchasePayMode, repurchaseRequiredWei]);
+  }, [chainNeteBalance, principalPoolBalance, profitPoolBalance, repurchasePayMode, repurchaseRequiredWei, repurchaseRowCount]);
   const canSubmitRepurchase = Boolean(repurchaseContext)
     && wallet.isConnected
     && !actionBusy
     && !repurchasePaused
     && repurchaseContext.rows.length > 0
-    && repurchaseContext.amountWei > 0n
     && repurchaseBalanceEnough;
   const repurchaseSubmitting = Boolean(repurchaseContext) && (
     repurchaseContext.mode === REPURCHASE_MODES.all
@@ -909,8 +930,15 @@ export default function MiningPage() {
                         <div>
                           <div className="mining-portfolio-item__title">
                             <h4 className="mining-model-title">
-                              <span>{machine.modelBase}</span>
-                              {machine.modelSuffix ? <small>{machine.modelSuffix}</small> : null}
+                              <span className="mining-model-title__main">
+                                <span>{machine.modelTitleName}</span>
+                                {machine.modelTitleAmount ? <small>·{machine.modelTitleAmount}NETE</small> : null}
+                              </span>
+                              {machine.modelSuffix && !machine.hideModelSuffix ? (
+                                <small className={`mining-model-title__suffix mining-model-title__suffix--${machine.modelSuffixTone}`}>
+                                  {machine.modelSuffix}
+                                </small>
+                              ) : null}
                             </h4>
                             {machine.isAirdrop ? (
                               <span className="mining-chip mining-chip--airdrop">
@@ -1046,8 +1074,15 @@ export default function MiningPage() {
                     <article key={model.tierIndex} className={model.isAirdrop ? "mining-plan-item mining-plan-item--airdrop" : "mining-plan-item"}>
                       <div>
                         <h4 className="mining-model-title">
-                          <span>{model.modelBase}</span>
-                          {model.modelSuffix ? <small>{model.modelSuffix}</small> : null}
+                          <span className="mining-model-title__main">
+                            <span>{model.modelTitleName}</span>
+                            <small>·{model.modelTitleAmount}NETE</small>
+                          </span>
+                          {model.modelSuffix && !model.hideModelSuffix ? (
+                            <small className={`mining-model-title__suffix mining-model-title__suffix--${model.modelSuffixTone}`}>
+                              {model.modelSuffix}
+                            </small>
+                          ) : null}
                         </h4>
                       </div>
                       {model.badge ? <span className="mining-plan-badge">{model.isAirdrop && airdropMachineStatus.permanent ? t("modules.mining.buy.airdropPermanentBadge") : model.badge}</span> : null}
@@ -1062,14 +1097,13 @@ export default function MiningPage() {
                         <button
                           className="mining-btn mining-btn--primary"
                           type="button"
-                          onClick={() => (model.isAirdrop ? openPurchaseModal(firstPaidMachineModel) : openPurchaseModal(model))}
-                          disabled={model.isAirdrop ? !firstPaidMachineModel : (repurchasePaused || model.remaining <= 0)}
+                          onClick={() => (model.isAirdrop ? undefined : openPurchaseModal(model))}
+                          disabled={model.isAirdrop || repurchasePaused || model.remaining <= 0}
                         >
                           {model.isAirdrop
                             ? t("modules.mining.buy.airdropAction")
                             : t("modules.mining.buy.actionValue")}
                         </button>
-                        {model.isAirdrop ? <p className="mining-airdrop-gift">{t("modules.mining.buy.airdropGiftHint")}</p> : null}
                       </div>
                     </article>
                   ))
@@ -1177,7 +1211,7 @@ export default function MiningPage() {
             <div className="flex items-start justify-between gap-2">
               <div className="flex items-center gap-2">
                 <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-[#ff9900] text-base font-bold text-white">B</span>
-                <h3 className="font-display text-lg font-bold tracking-tight text-white md:text-xl">{selectedModel.model} {t("modules.mining.modal.subscribe")}</h3>
+                <h3 className="font-display text-lg font-bold tracking-tight text-white md:text-xl">{selectedModel.modelPicker} {t("modules.mining.modal.subscribe")}</h3>
               </div>
               <button className="inline-flex h-7 w-7 items-center justify-center rounded-full text-xl leading-none text-white/70 transition hover:bg-white/10 hover:text-white" type="button" onClick={closePurchaseModal} aria-label={t("modules.mining.modal.close")}>
                 <Icon icon="solar:close-circle-outline" width="1em" height="1em" />
@@ -1194,7 +1228,7 @@ export default function MiningPage() {
                   aria-haspopup="listbox"
                   aria-expanded={modelPickerOpen}
                 >
-                  <span className="truncate">{selectedModel.model} - {selectedModel.price} NETE</span>
+                  <span className="truncate">{selectedModel.modelPicker} - {selectedModel.price} NETE</span>
                   <span className={`ml-3 shrink-0 text-base text-white/70 transition-transform ${modelPickerOpen ? "rotate-180" : ""}`} aria-hidden="true">
                     <Icon icon="solar:alt-arrow-down-outline" width="1em" height="1em" />
                   </span>
@@ -1219,7 +1253,7 @@ export default function MiningPage() {
                             role="option"
                             aria-selected={active}
                           >
-                            <span className="truncate">{model.model} - {model.price} NETE</span>
+                            <span className="truncate">{model.modelPicker} - {model.price} NETE</span>
                             {active ? (
                               <span className="ml-3 shrink-0 text-base text-[#caff00]" aria-hidden="true">
                                 <Icon icon="solar:check-circle-bold" width="1em" height="1em" />

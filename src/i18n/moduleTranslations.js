@@ -241,7 +241,7 @@ export const moduleTranslations = {
         actionValue: "申购矿机",
         airdropBadge: "空投",
         airdropPermanentBadge: "永久空投",
-        airdropAction: "购买",
+        airdropAction: "购买100型以上矿机赠送",
         airdropGiftHint: "购买100型以上矿机赠送此矿机",
         airdropClaimed: "已领取（不可重复）",
         airdropActivated: "已激活空投矿机",
@@ -493,6 +493,17 @@ export const moduleTranslations = {
       balance: "余额（NETE）",
       txHash: "交易 Hash",
       claimTime: "结算日",
+      ledgerTypes: {
+        minerIncome: "矿机收益",
+        income: "收益",
+      },
+      pagination: {
+        label: "收益明细分页",
+        prev: "上一页",
+        next: "下一页",
+        page: "第 {{page}} 页",
+        pageWithTotal: "{{page}} / {{total}}",
+      },
       emptyLedger: "暂无收益流水",
       messages: {
         connectWallet: "请先连接钱包",
@@ -802,7 +813,7 @@ export const moduleTranslations = {
         actionValue: "Subscribe",
         airdropBadge: "Airdrop",
         airdropPermanentBadge: "Permanent Airdrop",
-        airdropAction: "Buy",
+        airdropAction: "Buy 100-type or above to receive",
         airdropGiftHint: "Buy a 100-type or higher miner to receive this miner.",
         airdropClaimed: "Claimed",
         airdropActivated: "Airdrop Miner Activated",
@@ -1054,6 +1065,17 @@ export const moduleTranslations = {
       balance: "Balance (NETE)",
       txHash: "Transaction Hash",
       claimTime: "Settlement Day",
+      ledgerTypes: {
+        minerIncome: "Miner Income",
+        income: "Income",
+      },
+      pagination: {
+        label: "Income details pagination",
+        prev: "Prev",
+        next: "Next",
+        page: "Page {{page}}",
+        pageWithTotal: "{{page}} / {{total}}",
+      },
       emptyLedger: "No income ledger yet",
       messages: {
         connectWallet: "Please connect your wallet first",
@@ -1165,7 +1187,7 @@ moduleTranslations["zh-TW"] = mergeTranslations(moduleTranslations.zh, {
     buy: {
       title: "多檔礦機・靈活配置",
       desc: "領取空投0門檻參與，多檔位礦機可選，輕鬆佈局早期賽道，鏈上申購公開透明，無隱藏套路。",
-      airdropAction: "購買",
+      airdropAction: "購買100型以上礦機贈送",
       airdropGiftHint: "購買100型以上礦機贈送此礦機",
       quantity: "數量",
       modelSuffix: { starter: "新手啟航", classic: "經典優選", hot: "熱門爆款", advanced: "高階算力" },
@@ -1201,7 +1223,19 @@ moduleTranslations["zh-TW"] = mergeTranslations(moduleTranslations.zh, {
     inviteDesc: "邀請好友享5%加速獎勵，共享生態紅利，鏈上規則自動分配。",
     share: "分享",
     unbound: "未綁定",
+    detailTitle: "收益明細",
     claimTime: "結算日",
+    ledgerTypes: {
+      minerIncome: "礦機收益",
+      income: "收益",
+    },
+    pagination: {
+      label: "收益明細分頁",
+      prev: "上一頁",
+      next: "下一頁",
+      page: "第 {{page}} 頁",
+      pageWithTotal: "{{page}} / {{total}}",
+    },
     claimActions: {
       referral: "領取加速獎",
       dividend: "領取級別獎勵",
@@ -1260,7 +1294,7 @@ moduleTranslations.ja = mergeTranslations(moduleTranslations.en, {
     buy: {
       title: "複数ランクのマイナーを柔軟に配置",
       desc: "エアドロップで参加でき、複数ランクのマイナーを選択可能。オンチェーン購入は公開透明です。",
-      airdropAction: "購入",
+      airdropAction: "100型以上の購入で進呈",
       airdropGiftHint: "100型以上のマイナー購入でこのマイナーを進呈",
       quantity: "数量",
       modelSuffix: { starter: "初心者向け", classic: "定番", hot: "人気", advanced: "高階算力" },
@@ -1296,7 +1330,19 @@ moduleTranslations.ja = mergeTranslations(moduleTranslations.en, {
     inviteDesc: "友人を招待して5%の加速報酬を得ながら、オンチェーンルールでエコシステム利益を共有できます。",
     share: "共有",
     unbound: "未連携",
+    detailTitle: "収益明細",
     claimTime: "決済日",
+    ledgerTypes: {
+      minerIncome: "マイナー収益",
+      income: "収益",
+    },
+    pagination: {
+      label: "収益明細ページネーション",
+      prev: "前へ",
+      next: "次へ",
+      page: "{{page}}ページ",
+      pageWithTotal: "{{page}} / {{total}}",
+    },
     claimActions: {
       referral: "加速報酬を受取",
       dividend: "レベル報酬を受取",
@@ -1355,7 +1401,7 @@ moduleTranslations.ko = mergeTranslations(moduleTranslations.en, {
     buy: {
       title: "다단계 마이너・유연한 배치",
       desc: "에어드롭으로 진입 장벽 없이 참여하고, 다양한 마이너를 온체인에서 투명하게 신청할 수 있습니다.",
-      airdropAction: "구매",
+      airdropAction: "100형 이상 구매 시 증정",
       airdropGiftHint: "100형 이상 마이너 구매 시 이 마이너 증정",
       quantity: "수량",
       modelSuffix: { starter: "초보 시작", classic: "클래식", hot: "인기", advanced: "고급 산력" },
@@ -1391,7 +1437,19 @@ moduleTranslations.ko = mergeTranslations(moduleTranslations.en, {
     inviteDesc: "친구를 초대해 5% 가속 보상을 받고 온체인 규칙으로 생태계 보상을 공유하세요.",
     share: "공유",
     unbound: "미연결",
+    detailTitle: "수익 상세",
     claimTime: "정산일",
+    ledgerTypes: {
+      minerIncome: "마이너 수익",
+      income: "수익",
+    },
+    pagination: {
+      label: "수익 상세 페이지",
+      prev: "이전",
+      next: "다음",
+      page: "{{page}}페이지",
+      pageWithTotal: "{{page}} / {{total}}",
+    },
     claimActions: {
       referral: "가속 보상 수령",
       dividend: "레벨 보상 수령",

@@ -23,9 +23,9 @@ export default function HeroSection() {
             <h1 className="hero__title" id="hero-title">
               <span className="hero__title-line--acid">NETE</span>
               <p className="hero__title_p">
-                <span>链接传统支付</span>
-                <span className="hero__title-line--muted"> Web3 </span>的
-                <span className="hero__title-line--muted">{t("landing.hero.titleC")}</span>
+                <span>{t("landing.hero.titlePrefix")}</span>
+                <span className="hero__title-line--muted"> {t("landing.hero.titleWeb3")} </span>
+                <span className="hero__title-line--muted">{t("landing.hero.titleSuffix")}</span>
               </p>
             </h1>
 
