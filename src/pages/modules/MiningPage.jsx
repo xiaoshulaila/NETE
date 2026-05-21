@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Icon } from "@iconify/react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -11,6 +11,7 @@ import {
   activateMiner,
   approveNeteToCore,
   checkInWithBABT,
+  claimAllRewards,
   claimAndActivateAirdropMiner,
   claimAirdropReward,
   claimReward,
@@ -25,6 +26,7 @@ import {
   withdrawAllProfit,
 } from "../../services/neteContracts";
 import { formatTokenAmount, formatUnixTime } from "../../utils/formatters";
+import { getWalletErrorMessage } from "../../utils/walletErrors";
 
 const MINING_VIEWS = [
   { key: "buy-miners", labelKey: "modules.mining.tabs.buyMiners" },
@@ -157,6 +159,7 @@ export default function MiningPage() {
   const [checkingIn, setCheckingIn] = useState(false);
   const [withdrawingCheckin, setWithdrawingCheckin] = useState(false);
   const [checkinCalendarOpen, setCheckinCalendarOpen] = useState(false);
+  const [actionNotice, setActionNotice] = useState("");
 
   const tiersQuery = useQuery({
     queryKey: ["nete", "miner-tiers"],
@@ -196,6 +199,12 @@ export default function MiningPage() {
     staleTime: 30_000,
     retry: 0,
   });
+
+  useEffect(() => {
+    if (!actionNotice) return undefined;
+    const timer = window.setTimeout(() => setActionNotice(""), 3000);
+    return () => window.clearTimeout(timer);
+  }, [actionNotice]);
 
   const userTierCounts = useMemo(() => {
     const counts = new Map();
@@ -492,7 +501,7 @@ export default function MiningPage() {
   const actionBusy = claimingAll || repurchasingAll || withdrawingAll || checkingIn || withdrawingCheckin || Boolean(claimingId) || Boolean(repurchasingId);
   const canClaimAllRewards = wallet.isConnected && totalClaimableRewardWei > 0n && !hasClaimBlockingPosition && !actionBusy;
   const canRepurchaseExpired = wallet.isConnected && batchRepurchasableMinerRows.length > 0 && !repurchasePaused && !actionBusy;
-  const canWithdrawAllProfits = wallet.isConnected && (profitPoolBalance >= MIN_VISIBLE_NETE_WEI || totalClaimableRewardWei > 0n) && !actionBusy;
+  const canWithdrawAllProfits = wallet.isConnected && profitPoolBalance >= MIN_VISIBLE_NETE_WEI && !actionBusy;
   const canClaimAirdrop = wallet.isConnected && !claimingAirdrop && !hasAirdropMiner && !airdropNftClaimed && hasRequiredAirdropNft;
   const canCheckInWithBABT = wallet.isConnected && !actionBusy && !hasAnyMinerPosition && hasRequiredAirdropNft && checkinRewardAmount > 0n;
   const canWithdrawCheckinProfit = wallet.isConnected && !actionBusy && checkinProfitBalance >= MIN_VISIBLE_NETE_WEI;
@@ -570,16 +579,6 @@ export default function MiningPage() {
     setAgreementOpen(false);
   }
 
-  const claimMachineRewards = async (rows) => {
-    for (const machine of rows) {
-      if (machine.isAirdrop) {
-        await claimAirdropReward(wallet.currentAddress, machine.positionId);
-      } else {
-        await claimReward(wallet.currentAddress, machine.positionId);
-      }
-    }
-  };
-
   const purchaseWalletShortfall = useMemo(() => {
     if (paymentMethod === PAYMENT_METHODS.wallet) return projectedCostWei;
     if (paymentMethod === PAYMENT_METHODS.auto) {
@@ -620,7 +619,8 @@ export default function MiningPage() {
         queryClient.invalidateQueries({ queryKey: ["nete", "balances", wallet.currentAddress] }),
       ]);
       closePurchaseModal();
-    } catch {
+    } catch (error) {
+      setActionNotice(getWalletErrorMessage(error, t, "modules.mining.messages.purchaseFailed"));
       return;
     } finally {
       setPurchasing(false);
@@ -644,9 +644,10 @@ export default function MiningPage() {
     try {
       setClaimingAll(true);
       await wallet.ensureCorrectChain();
-      await claimMachineRewards(rows);
+      await claimAllRewards(wallet.currentAddress);
       await refreshMiningData();
-    } catch {
+    } catch (error) {
+      setActionNotice(getWalletErrorMessage(error, t, "modules.mining.messages.claimAllFailed"));
       return;
     } finally {
       setClaimingAll(false);
@@ -678,7 +679,8 @@ export default function MiningPage() {
       }
       await refreshMiningData();
       closeRepurchaseModal();
-    } catch {
+    } catch (error) {
+      setActionNotice(getWalletErrorMessage(error, t, "modules.mining.messages.repurchaseFailed"));
       return;
     } finally {
       if (isBatch) {
@@ -698,17 +700,10 @@ export default function MiningPage() {
       withdrawingAllRef.current = true;
       setWithdrawingAll(true);
       await wallet.ensureCorrectChain();
-      const rows = claimablePortfolioRows;
-      if (rows.length > 0) {
-        try {
-          await claimMachineRewards(rows);
-        } catch (error) {
-          if (profitPoolBalance < MIN_VISIBLE_NETE_WEI) throw error;
-        }
-      }
       await withdrawAllProfit(wallet.currentAddress);
       await refreshMiningData();
-    } catch {
+    } catch (error) {
+      setActionNotice(getWalletErrorMessage(error, t, "modules.mining.messages.withdrawFailed"));
       return;
     } finally {
       withdrawingAllRef.current = false;
@@ -724,7 +719,8 @@ export default function MiningPage() {
       await wallet.ensureCorrectChain();
       await checkInWithBABT(wallet.currentAddress);
       await refreshMiningData();
-    } catch {
+    } catch (error) {
+      setActionNotice(getWalletErrorMessage(error, t, "modules.mining.messages.claimFailed"));
       return;
     } finally {
       setCheckingIn(false);
@@ -739,7 +735,8 @@ export default function MiningPage() {
       await wallet.ensureCorrectChain();
       await withdrawCheckInProfit(wallet.currentAddress, checkinProfitBalance);
       await refreshMiningData();
-    } catch {
+    } catch (error) {
+      setActionNotice(getWalletErrorMessage(error, t, "modules.mining.messages.withdrawFailed"));
       return;
     } finally {
       setWithdrawingCheckin(false);
@@ -760,7 +757,8 @@ export default function MiningPage() {
         await claimReward(wallet.currentAddress, positionId);
       }
       await refreshMiningData();
-    } catch {
+    } catch (error) {
+      setActionNotice(getWalletErrorMessage(error, t, "modules.mining.messages.claimFailed"));
       return;
     } finally {
       setClaimingId("");
@@ -777,7 +775,8 @@ export default function MiningPage() {
       await refreshMiningData();
       closeAirdropModal();
       setActiveView("my-miners");
-    } catch {
+    } catch (error) {
+      setActionNotice(getWalletErrorMessage(error, t, "modules.mining.messages.airdropFailed"));
       return;
     } finally {
       setClaimingAirdrop(false);
@@ -1675,6 +1674,11 @@ export default function MiningPage() {
           </article>
         </div>
       ), portalRoot) : null}
+      {actionNotice ? (
+        <div className="fixed bottom-6 left-1/2 z-[700] max-w-[calc(100vw-32px)] -translate-x-1/2 rounded-xl border border-white/10 bg-black/90 px-4 py-3 text-center text-sm text-white shadow-[0_24px_70px_rgba(0,0,0,0.36)]" role="status" aria-live="polite">
+          {actionNotice}
+        </div>
+      ) : null}
     </section>
   );
 }

@@ -5,6 +5,7 @@ import { Icon } from "@iconify/react";
 import logoIcon from "../../assets/images/logo-icon.svg";
 import { useWalletConnector } from "../../hooks/useWalletConnector";
 import { languageOptions } from "../../i18n";
+import { getWalletErrorMessage } from "../../utils/walletErrors";
 
 const navItems = [
   { key: "home", to: "/" },
@@ -175,6 +176,12 @@ export default function GlobalHeader() {
   }, [wallet.isConnected]);
 
   useEffect(() => {
+    if (!walletError) return undefined;
+    const timer = window.setTimeout(() => setWalletError(""), 3000);
+    return () => window.clearTimeout(timer);
+  }, [walletError]);
+
+  useEffect(() => {
     const onKeyDown = (event) => {
       if (event.key === "Escape") {
         setMenuOpen(false);
@@ -221,8 +228,7 @@ export default function GlobalHeader() {
 
       wallet.disconnectWallet();
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Wallet action failed";
-      window.alert(message);
+      setWalletError(getWalletErrorMessage(error, t, "nav.wallet.connectionFailed"));
     }
   };
 
@@ -232,8 +238,7 @@ export default function GlobalHeader() {
       await wallet.connectWallet(connector);
       setWalletModalOpen(false);
     } catch (error) {
-      const message = error instanceof Error ? error.message : t("nav.wallet.connectionFailed");
-      setWalletError(message);
+      setWalletError(getWalletErrorMessage(error, t, "nav.wallet.connectionFailed"));
     }
   };
 
@@ -380,6 +385,11 @@ export default function GlobalHeader() {
         t={t}
         wallet={wallet}
       />
+      {walletError && (!walletModalOpen || wallet.isConnected) ? (
+        <div className="fixed bottom-6 left-1/2 z-[720] max-w-[calc(100vw-32px)] -translate-x-1/2 rounded-xl border border-white/10 bg-black/90 px-4 py-3 text-center text-sm text-white shadow-[0_24px_70px_rgba(0,0,0,0.36)]" role="status" aria-live="polite">
+          {walletError}
+        </div>
+      ) : null}
     </>
   );
 }

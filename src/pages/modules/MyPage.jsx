@@ -7,6 +7,7 @@ import { getClaimMessage, getIncomeLedger, getIncomeOverview, getPerformanceLegs
 import { claimWithSignature, readNetworkUserData, readUserBalances, readUserMiningData } from "../../services/neteContracts";
 import { copyText } from "../../utils/clipboard";
 import { formatTokenAmount, formatUnixTime, shortAddress } from "../../utils/formatters";
+import { getWalletErrorMessage } from "../../utils/walletErrors";
 
 const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
 const LEDGER_PAGE_SIZE = 10;
@@ -105,14 +106,21 @@ function formatBeijingTime(seconds) {
   return date.toLocaleString("zh-CN", { hour12: false, timeZone: "Asia/Shanghai" });
 }
 
-function getLedgerTimeText(row) {
-  const epochDay = Number(row?.epoch_day ?? row?.epochDay ?? 0);
-  if (Number.isFinite(epochDay) && epochDay > 0) {
-    return formatBeijingTime(epochDay * 24 * 60 * 60);
-  }
+function getLedgerTimeValue(row) {
+  const candidates = [
+    row?.claimed_at,
+    row?.claimedAt,
+    row?.created_at,
+    row?.createdAt,
+    row?.settled_at,
+    row?.settledAt,
+    row?.timestamp,
+  ];
+  return candidates.map(Number).find((value) => Number.isFinite(value) && value > 0) || 0;
+}
 
-  const seconds = Number(row?.created_at ?? row?.createdAt ?? row?.claimed_at ?? row?.claimedAt ?? row?.settled_at ?? row?.settledAt ?? row?.timestamp ?? 0);
-  return formatBeijingTime(seconds);
+function getLedgerTimeText(row) {
+  return formatBeijingTime(getLedgerTimeValue(row));
 }
 
 function normalizeLedgerRow(row, index, t) {
@@ -133,7 +141,7 @@ function normalizeLedgerRow(row, index, t) {
 function isEmptyLedgerRow(row) {
   const type = String(row?.type ?? row?.biz_type ?? row?.category ?? row?.event_type ?? row?.reward_type ?? "").trim();
   const txHash = String(row?.tx_hash ?? row?.txHash ?? row?.tx ?? "").trim();
-  const createdAt = Number(row?.epoch_day ?? row?.epochDay ?? row?.created_at ?? row?.createdAt ?? row?.claimed_at ?? row?.claimedAt ?? row?.settled_at ?? row?.settledAt ?? row?.timestamp ?? 0);
+  const createdAt = getLedgerTimeValue(row);
   const positionId = String(row?.position_id ?? row?.positionId ?? "").trim();
 
   return getLedgerAmount(row) === 0n
@@ -212,6 +220,12 @@ export default function MyPage() {
   useEffect(() => {
     setLedgerPage(1);
   }, [wallet.currentAddress]);
+
+  useEffect(() => {
+    if (!notice) return undefined;
+    const timer = window.setTimeout(() => setNotice(""), 3000);
+    return () => window.clearTimeout(timer);
+  }, [notice]);
 
   const rawLedgerRows = useMemo(
     () => toItems(incomeLedgerQuery.data).filter((row) => !isEmptyLedgerRow(row)),
@@ -340,7 +354,7 @@ export default function MyPage() {
       if (message.includes("claim signature disabled")) {
         setNotice(t("modules.my.messages.disabled"));
       } else {
-        setNotice(message);
+        setNotice(getWalletErrorMessage(error, t, "modules.my.messages.failed"));
       }
     } finally {
       setClaimingType("");

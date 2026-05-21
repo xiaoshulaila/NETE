@@ -492,7 +492,7 @@ export const moduleTranslations = {
       amount: "数量（NETE）",
       balance: "余额（NETE）",
       txHash: "交易 Hash",
-      claimTime: "结算日",
+      claimTime: "领取时间",
       ledgerTypes: {
         minerIncome: "矿机收益",
         income: "收益",
@@ -1074,7 +1074,7 @@ export const moduleTranslations = {
       amount: "Amount (NETE)",
       balance: "Balance (NETE)",
       txHash: "Transaction Hash",
-      claimTime: "Settlement Day",
+      claimTime: "Claim Time",
       ledgerTypes: {
         minerIncome: "Miner Income",
         income: "Income",
@@ -1245,7 +1245,7 @@ moduleTranslations["zh-TW"] = mergeTranslations(moduleTranslations.zh, {
     share: "分享",
     unbound: "未綁定",
     detailTitle: "收益明細",
-    claimTime: "結算日",
+    claimTime: "領取時間",
     ledgerTypes: {
       minerIncome: "礦機收益",
       income: "收益",
@@ -1361,7 +1361,7 @@ moduleTranslations.ja = mergeTranslations(moduleTranslations.en, {
     share: "共有",
     unbound: "未連携",
     detailTitle: "収益明細",
-    claimTime: "決済日",
+    claimTime: "受取時間",
     ledgerTypes: {
       minerIncome: "マイナー収益",
       income: "収益",
@@ -1477,7 +1477,7 @@ moduleTranslations.ko = mergeTranslations(moduleTranslations.en, {
     share: "공유",
     unbound: "미연결",
     detailTitle: "수익 상세",
-    claimTime: "정산일",
+    claimTime: "수령 시간",
     ledgerTypes: {
       minerIncome: "마이너 수익",
       income: "수익",

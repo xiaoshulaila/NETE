@@ -14,6 +14,15 @@ const resources = {
         korean: "한국어",
         loading: "加载中...",
         unavailable: "--",
+        walletErrors: {
+          rejected: "你已取消钱包操作",
+          insufficientGas: "Gas 或钱包余额不足，请补充后重试",
+          wrongChain: "请切换到目标链后重试",
+          noProvider: "未检测到可用钱包，请先安装或打开钱包",
+          network: "网络连接异常，请稍后重试",
+          contract: "交易条件不满足，请检查后重试",
+          failed: "操作失败，请稍后重试",
+        },
       },
       nav: {
         home: "首页",
@@ -200,6 +209,15 @@ const resources = {
         korean: "한국어",
         loading: "Loading...",
         unavailable: "--",
+        walletErrors: {
+          rejected: "Wallet action cancelled",
+          insufficientGas: "Insufficient gas or wallet balance. Please top up and try again.",
+          wrongChain: "Please switch to the target chain and try again.",
+          noProvider: "No wallet detected. Please install or open a wallet first.",
+          network: "Network connection error. Please try again later.",
+          contract: "Transaction conditions are not met. Please check and try again.",
+          failed: "Action failed. Please try again later.",
+        },
       },
       nav: {
         home: "Home",
@@ -403,6 +421,15 @@ resources["zh-TW"] = {
     common: {
       language: "語言",
       loading: "載入中...",
+      walletErrors: {
+        rejected: "你已取消錢包操作",
+        insufficientGas: "Gas 或錢包餘額不足，請補充後重試",
+        wrongChain: "請切換到目標鏈後重試",
+        noProvider: "未偵測到可用錢包，請先安裝或開啟錢包",
+        network: "網路連線異常，請稍後重試",
+        contract: "交易條件不滿足，請檢查後重試",
+        failed: "操作失敗，請稍後重試",
+      },
     },
     nav: {
       home: "首頁",
@@ -498,6 +525,15 @@ resources.ja = {
     common: {
       language: "言語",
       loading: "読み込み中...",
+      walletErrors: {
+        rejected: "ウォレット操作をキャンセルしました",
+        insufficientGas: "Gas またはウォレット残高が不足しています。補充してから再試行してください。",
+        wrongChain: "対象チェーンに切り替えてから再試行してください。",
+        noProvider: "利用可能なウォレットが検出されません。ウォレットをインストールまたは起動してください。",
+        network: "ネットワーク接続エラーです。しばらくしてから再試行してください。",
+        contract: "取引条件を満たしていません。確認してから再試行してください。",
+        failed: "操作に失敗しました。しばらくしてから再試行してください。",
+      },
     },
     nav: {
       home: "ホーム",
@@ -595,6 +631,15 @@ resources.ko = {
     common: {
       language: "언어",
       loading: "로딩 중...",
+      walletErrors: {
+        rejected: "지갑 작업을 취소했습니다",
+        insufficientGas: "Gas 또는 지갑 잔액이 부족합니다. 충전 후 다시 시도하세요.",
+        wrongChain: "대상 체인으로 전환한 뒤 다시 시도하세요.",
+        noProvider: "사용 가능한 지갑을 찾을 수 없습니다. 지갑을 설치하거나 열어 주세요.",
+        network: "네트워크 연결 오류입니다. 잠시 후 다시 시도하세요.",
+        contract: "거래 조건이 충족되지 않았습니다. 확인 후 다시 시도하세요.",
+        failed: "작업에 실패했습니다. 잠시 후 다시 시도하세요.",
+      },
     },
     nav: {
       home: "홈",

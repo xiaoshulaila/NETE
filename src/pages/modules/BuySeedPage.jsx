@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { formatUnits } from "viem";
@@ -7,6 +7,7 @@ import { useWalletConnector } from "../../hooks/useWalletConnector";
 import { getPresaleRecords } from "../../services/neteApi";
 import { approveUsdtToCore, buySeed, readCoreSeedInfo, readUsdtCoreAllowance, readUserBalances, readUserMiningData } from "../../services/neteContracts";
 import { formatTokenAmount, formatUnixTime, parseTokenInput, shortAddress } from "../../utils/formatters";
+import { getWalletErrorMessage } from "../../utils/walletErrors";
 
 const ONE_18 = 10n ** 18n;
 
@@ -97,6 +98,12 @@ export default function BuySeedPage() {
       ? t("modules.seed.confirm")
       : t("modules.seed.saleClosed");
 
+  useEffect(() => {
+    if (!txMessage) return undefined;
+    const timer = window.setTimeout(() => setTxMessage(""), 3000);
+    return () => window.clearTimeout(timer);
+  }, [txMessage]);
+
   const clearForm = () => {
     setQuantityInput("");
     setTxMessage("");
@@ -130,7 +137,7 @@ export default function BuySeedPage() {
       const rawMessage = error instanceof Error ? error.message : "";
       const message = rawMessage.includes("SeedSaleClosed") || rawMessage.includes("0xc038c35b")
         ? t("modules.seed.messages.saleClosed")
-        : rawMessage || t("modules.seed.messages.failed");
+        : getWalletErrorMessage(error, t, "modules.seed.messages.failed");
       setTxMessage(message);
     } finally {
       setSubmitting(false);

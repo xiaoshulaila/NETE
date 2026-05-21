@@ -1016,8 +1016,16 @@ export type IncomeLedgerRow = {
   user: string;
   /** 仓位ID */
   position_id: number;
+  /** 矿机档位（tierIndex） */
+  tier: number;
+  /** 矿机本金（18位精度） */
+  principal: string;
+  /** 是否空投矿机 */
+  is_airdrop: boolean;
   /** 结算日（UTC day） */
   epoch_day: number;
+  /** 领取时间（Unix 秒时间戳） */
+  claimed_at: number;
   /** 本次总收益 */
   gross_reward: string;
   /** 本次计入本金部分 */

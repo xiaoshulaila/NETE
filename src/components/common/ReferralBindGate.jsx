@@ -7,6 +7,7 @@ import { useWalletConnector } from "../../hooks/useWalletConnector";
 import { getReferralInfo } from "../../services/neteApi";
 import { bindReferrer, readNetworkReferrer } from "../../services/neteContracts";
 import { isValidAddress } from "../../utils/formatters";
+import { getWalletErrorMessage } from "../../utils/walletErrors";
 
 const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
 
@@ -26,7 +27,7 @@ function getBindErrorMessage(error, t) {
   if (message.includes("SelfReferral")) return t("modules.team.messages.selfAddress");
   if (message.includes("ZeroAddress")) return t("modules.team.messages.zeroAddress");
   if (message.includes("CircularReferral")) return t("modules.team.messages.circularReferral");
-  return message || t("modules.team.messages.failed");
+  return getWalletErrorMessage(error, t, "modules.team.messages.failed");
 }
 
 export default function ReferralBindGate() {
@@ -83,6 +84,12 @@ export default function ReferralBindGate() {
     setBindNotice("");
     setBoundWalletAddress("");
   }, [wallet.currentAddress]);
+
+  useEffect(() => {
+    if (!bindNotice) return undefined;
+    const timer = window.setTimeout(() => setBindNotice(""), 3000);
+    return () => window.clearTimeout(timer);
+  }, [bindNotice]);
 
   useEffect(() => {
     if (!bindModalDismissed || !wallet.isConnected || referrerLoading || referrerError || locallyBound || !referrerMissing) {

@@ -22,6 +22,7 @@ import {
 } from "../../services/neteContracts";
 import { copyText } from "../../utils/clipboard";
 import { formatOrderNo, formatTokenAmount, parseTokenInput, shortAddress } from "../../utils/formatters";
+import { getWalletErrorMessage } from "../../utils/walletErrors";
 import "../styles/c2c.css";
 
 const marketTabs = [
@@ -277,7 +278,7 @@ export default function C2CMarketPage() {
 
   useEffect(() => {
     if (!toastMessage) return undefined;
-    const timer = window.setTimeout(() => setToastMessage(""), 2400);
+    const timer = window.setTimeout(() => setToastMessage(""), 3000);
     return () => window.clearTimeout(timer);
   }, [toastMessage]);
 
@@ -336,8 +337,7 @@ export default function C2CMarketPage() {
       setToastMessage(t("modules.c2cMarket.messages.buySuccess", { hash: tx.hash }));
       switchTab("mine");
     } catch (error) {
-      const message = error instanceof Error ? error.message : t("modules.c2cMarket.messages.buyFailed");
-      setToastMessage(message);
+      setToastMessage(getWalletErrorMessage(error, t, "modules.c2cMarket.messages.buyFailed"));
     } finally {
       setActionKey("");
     }
@@ -357,8 +357,7 @@ export default function C2CMarketPage() {
       await refreshOrders();
       setToastMessage(t("modules.c2cMarket.messages.cancelSuccess", { hash: tx.hash }));
     } catch (error) {
-      const message = error instanceof Error ? error.message : t("modules.c2cMarket.messages.cancelFailed");
-      setToastMessage(message);
+      setToastMessage(getWalletErrorMessage(error, t, "modules.c2cMarket.messages.cancelFailed"));
     } finally {
       setActionKey("");
     }
@@ -429,8 +428,7 @@ export default function C2CMarketPage() {
       switchTab("mine");
       setToastMessage(t("modules.c2cMarket.messages.listingSuccess", { hash: tx.hash }));
     } catch (error) {
-      const message = error instanceof Error ? error.message : t("modules.c2cMarket.messages.listingFailed");
-      setToastMessage(message);
+      setToastMessage(getWalletErrorMessage(error, t, "modules.c2cMarket.messages.listingFailed"));
     } finally {
       setActionKey("");
     }
