@@ -11,6 +11,18 @@ import { getWalletErrorMessage } from "../../utils/walletErrors";
 
 const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
 const LEDGER_PAGE_SIZE = 10;
+const TIER_AMOUNT_MAP = {
+  1: "30",
+  2: "100",
+  3: "300",
+  4: "500",
+  5: "1000",
+  6: "3000",
+  7: "5000",
+  8: "10000",
+  9: "30000",
+  10: "50000",
+};
 
 function toItems(payload) {
   if (Array.isArray(payload)) return payload;
@@ -98,6 +110,12 @@ function getLedgerType(row, t) {
   return "--";
 }
 
+function isMinerLedger(row) {
+  const type = String(row?.type ?? row?.biz_type ?? row?.category ?? row?.event_type ?? row?.reward_type ?? "").trim().toLowerCase();
+  return ["矿机收益", "mining_income", "miner_income", "miner reward", "miner rewards"].includes(type)
+    || Boolean(row?.position_id ?? row?.positionId);
+}
+
 function formatBeijingTime(seconds) {
   const value = Number(seconds || 0);
   if (!Number.isFinite(value) || value <= 0) return "--";
@@ -123,15 +141,67 @@ function getLedgerTimeText(row) {
   return formatBeijingTime(getLedgerTimeValue(row));
 }
 
+function isAirdropLedger(row) {
+  return Boolean(row?.is_airdrop ?? row?.isAirdrop ?? row?.airdrop) || Number(row?.tier ?? row?.tier_index ?? row?.tierIndex) === 0;
+}
+
+function getMinerToneByAmount(amountText) {
+  const amount = Number(String(amountText || "").replace(/,/g, ""));
+  if (amount === 30 || amount === 100) return "starter";
+  if (amount === 300 || amount === 500) return "classic";
+  if (amount === 1000 || amount === 3000) return "hot";
+  if ([5000, 10000, 30000, 50000].includes(amount)) return "advanced";
+  return "default";
+}
+
+function getMinerAmountFromPrincipal(value) {
+  if (value === null || value === undefined || value === "") return "";
+  const text = String(value).trim();
+  if (!text) return "";
+  if (text.includes(".")) return text.replace(/(\.\d*?)0+$/, "$1").replace(/\.$/, "");
+
+  const principal = toBigIntSafe(value);
+  if (principal <= 0n) return "";
+  if (principal < 10n ** 12n) return text;
+  return formatTokenAmount(principal, 18, 0);
+}
+
+function getLedgerMinerTag(row, t) {
+  if (!row?.position_id && !row?.positionId && row?.tier === undefined && row?.tier_index === undefined && row?.tierIndex === undefined && row?.principal === undefined && row?.principalWei === undefined) {
+    return null;
+  }
+
+  if (isAirdropLedger(row)) {
+    return { label: t("modules.my.airdropMiner"), tone: "airdrop" };
+  }
+
+  const namedModel = String(row?.miner_model ?? row?.minerModel ?? row?.model_name ?? row?.modelName ?? "").trim();
+  if (namedModel) return { label: namedModel, tone: "default" };
+
+  const amountText = getMinerAmountFromPrincipal(row?.principal ?? row?.principalWei)
+    || TIER_AMOUNT_MAP[Number(row?.tier ?? row?.tier_index ?? row?.tierIndex)];
+
+  if (!amountText) return null;
+  return {
+    label: t("modules.my.minerModel", { amount: amountText }),
+    tone: getMinerToneByAmount(amountText),
+  };
+}
+
 function normalizeLedgerRow(row, index, t) {
   const amountBigInt = getLedgerAmount(row);
   const signedText = amountBigInt < 0n ? "-" : "+";
   const amountText = `${signedText}${formatTokenAmount(amountBigInt < 0n ? -amountBigInt : amountBigInt, 18, 6)}`;
+  const minerTag = getLedgerMinerTag(row, t);
+  const mergedMinerType = minerTag && isMinerLedger(row)
+    ? t(minerTag.tone === "airdrop" ? "modules.my.airdropMinerIncome" : "modules.my.minerIncomeWithModel", { model: minerTag.label })
+    : "";
 
   return {
     id: `${row?.id ?? row?.tx_hash ?? row?.txHash ?? "row"}-${index}`,
     createdAtText: getLedgerTimeText(row),
-    type: getLedgerType(row, t),
+    type: mergedMinerType || getLedgerType(row, t),
+    typeTone: mergedMinerType ? minerTag.tone : "",
     amountText,
     balanceText: formatTokenAmount(row?.balance ?? row?.remain ?? 0n, 18, 6),
     txHash: String(row?.tx_hash ?? row?.txHash ?? row?.tx ?? "--"),
@@ -474,7 +544,9 @@ export default function MyPage() {
               {ledgerRows.map((row) => (
                 <div className="my-detail-row" key={row.id}>
                   <div className="my-detail-row__info">
-                    <span className="my-type-badge">{row.type}</span>
+                    <div className="my-detail-row__badges">
+                      <span className={row.typeTone ? `my-type-badge my-type-badge--${row.typeTone}` : "my-type-badge"}>{row.type}</span>
+                    </div>
                     <time>{row.createdAtText}</time>
                   </div>
                   <strong className={row.amountText.startsWith("-") ? "is-negative" : ""}>{row.amountText}</strong>

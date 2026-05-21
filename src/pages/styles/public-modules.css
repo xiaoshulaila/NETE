@@ -599,6 +599,14 @@
   gap: 8px;
 }
 
+.my-detail-row__badges {
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
 .my-detail-row__info time {
   color: #b7c0b8;
   font-size: 12px;
@@ -640,6 +648,31 @@
   line-height: 1.2;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.my-type-badge--airdrop {
+  background: rgba(118, 245, 196, 0.14);
+  color: #76f5c4;
+}
+
+.my-type-badge--starter {
+  background: rgba(118, 245, 196, 0.12);
+  color: #76f5c4;
+}
+
+.my-type-badge--classic {
+  background: rgba(125, 167, 255, 0.13);
+  color: #9db8ff;
+}
+
+.my-type-badge--hot {
+  background: rgba(255, 189, 89, 0.14);
+  color: #ffd36e;
+}
+
+.my-type-badge--advanced {
+  background: rgba(202, 255, 0, 0.13);
+  color: var(--module-accent);
 }
 
 .my-empty-state {

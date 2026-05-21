@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import LoadingState from "../../components/common/LoadingState";
 import { useWalletConnector } from "../../hooks/useWalletConnector";
-import { getPerformanceLegs, getReferralDirects, getReferralInfo } from "../../services/neteApi";
+import { getPerformanceLegs, getPersonalPerformance, getReferralDownlines, getReferralInfo } from "../../services/neteApi";
 import { readNetworkUserData } from "../../services/neteContracts";
 import { formatTokenAmount, shortAddress } from "../../utils/formatters";
 
@@ -15,18 +15,18 @@ const PERFORMANCE_PAGE_SIZE = 10;
 
 const performanceFieldMap = {
   miner: {
-    own: ["miner_own_perf", "own_miner_perf", "mining_own_perf", "own_mining_perf", "miner_perf", "mining_perf", "own_perf"],
-    team: ["miner_team_perf", "team_miner_perf", "mining_team_perf", "team_mining_perf", "team_perf"],
-    direct: ["miner_direct_perf", "direct_miner_perf", "mining_direct_perf", "direct_mining_perf", "direct_perf", "performance", "total_perf"],
-    big: ["miner_big_leg_perf", "big_miner_perf", "mining_big_leg_perf", "big_mining_perf", "big_leg_perf"],
-    small: ["miner_small_leg_perf", "small_miner_perf", "mining_small_leg_perf", "small_mining_perf", "small_leg_perf"],
+    own: ["miner_perf", "own_miner_perf", "miner_own_perf", "mining_own_perf", "own_mining_perf", "mining_perf", "own_perf"],
+    team: ["subtree_miner_perf", "miner_team_perf", "team_miner_perf", "mining_team_perf", "team_mining_perf", "team_perf"],
+    direct: ["miner_perf", "own_miner_perf", "miner_direct_perf", "direct_miner_perf", "mining_direct_perf", "direct_mining_perf", "direct_perf", "performance", "total_perf"],
+    big: ["big_leg_miner_perf", "miner_big_leg_perf", "big_miner_perf", "mining_big_leg_perf", "big_mining_perf", "big_leg_perf"],
+    small: ["small_leg_miner_perf", "miner_small_leg_perf", "small_miner_perf", "mining_small_leg_perf", "small_mining_perf", "small_leg_perf"],
   },
   seed: {
-    own: ["seed_own_perf", "own_seed_perf", "presale_own_perf", "own_presale_perf", "seed_perf", "presale_perf"],
-    team: ["seed_team_perf", "team_seed_perf", "presale_team_perf", "team_presale_perf", "team_perf"],
-    direct: ["seed_direct_perf", "direct_seed_perf", "presale_direct_perf", "direct_presale_perf"],
+    own: ["presale_perf", "own_seed_perf", "seed_own_perf", "presale_own_perf", "own_presale_perf", "seed_perf"],
+    team: ["subtree_seed_perf", "seed_team_perf", "team_seed_perf", "presale_team_perf", "team_presale_perf", "team_perf"],
+    direct: ["presale_perf", "own_seed_perf", "seed_direct_perf", "direct_seed_perf", "presale_direct_perf", "direct_presale_perf"],
     big: ["seed_big_leg_perf", "big_seed_perf", "presale_big_leg_perf", "big_presale_perf", "big_leg_perf"],
-    small: ["seed_small_leg_perf", "small_seed_perf", "presale_small_leg_perf", "small_presale_perf"],
+    small: ["small_leg_seed_perf", "seed_small_leg_perf", "small_seed_perf", "presale_small_leg_perf", "small_presale_perf"],
   },
 };
 
@@ -37,7 +37,9 @@ const teamCountFieldMap = {
 
 function toItems(payload) {
   if (Array.isArray(payload)) return payload;
+  if (Array.isArray(payload?.downlines)) return payload.downlines;
   if (Array.isArray(payload?.items)) return payload.items;
+  if (Array.isArray(payload?.data?.downlines)) return payload.data.downlines;
   if (Array.isArray(payload?.data?.items)) return payload.data.items;
   return [];
 }
@@ -89,6 +91,11 @@ function pickNumber(source, keys) {
     }
   }
   return 0;
+}
+
+function getMemberAddress(member) {
+  if (typeof member === "string") return member;
+  return member?.address ?? member?.user ?? member?.wallet ?? member?.account ?? "";
 }
 
 function getMemberPerformance(member, type) {
@@ -168,10 +175,10 @@ export default function MyTeamPage() {
   });
 
   const directListQuery = useQuery({
-    queryKey: ["nete", "referral-directs", wallet.currentAddress, activePerformance, performancePage],
-    queryFn: () => getReferralDirects(wallet.currentAddress, { page: performancePage, pageSize: PERFORMANCE_PAGE_SIZE, type: activePerformance }).catch(() => []),
+    queryKey: ["nete", "referral-downlines", wallet.currentAddress],
+    queryFn: () => getReferralDownlines(wallet.currentAddress).catch(() => ({ downlines: [], total: 0 })),
     enabled: Boolean(wallet.currentAddress),
-    staleTime: 0,
+    staleTime: 15_000,
     retry: 0,
   });
 
@@ -198,9 +205,38 @@ export default function MyTeamPage() {
     : clientPaginatedDirects
       ? Math.max(1, Math.ceil(directMembersSource.length / PERFORMANCE_PAGE_SIZE))
       : 0;
-  const visibleDirectMembers = clientPaginatedDirects
-    ? directMembersSource.slice((performancePage - 1) * PERFORMANCE_PAGE_SIZE, performancePage * PERFORMANCE_PAGE_SIZE)
-    : directMembersSource;
+  const visibleDirectMembers = useMemo(
+    () => (
+      clientPaginatedDirects
+        ? directMembersSource.slice((performancePage - 1) * PERFORMANCE_PAGE_SIZE, performancePage * PERFORMANCE_PAGE_SIZE)
+        : directMembersSource
+    ),
+    [clientPaginatedDirects, directMembersSource, performancePage],
+  );
+  const visibleDirectAddresses = useMemo(
+    () => visibleDirectMembers.map(getMemberAddress).filter(Boolean),
+    [visibleDirectMembers],
+  );
+  const directPerformanceQuery = useQuery({
+    queryKey: ["nete", "referral-downline-performance", activePerformance, visibleDirectAddresses],
+    queryFn: async () => {
+      const rows = await Promise.all(visibleDirectAddresses.map(async (address) => {
+        const [referral, personal] = await Promise.all([
+          getReferralInfo(address).catch(() => ({})),
+          getPersonalPerformance(address).catch(() => ({})),
+        ]);
+        return { address, ...referral, ...personal };
+      }));
+      return rows;
+    },
+    enabled: visibleDirectAddresses.length > 0,
+    staleTime: 15_000,
+    retry: 0,
+  });
+  const directPerformanceMap = useMemo(
+    () => new Map((directPerformanceQuery.data || []).map((row) => [String(row.address).toLowerCase(), row])),
+    [directPerformanceQuery.data],
+  );
   const showPerformancePagination = !(directTotalCount > 0 && directTotalPages <= 1)
     && (performancePage > 1 || directTotalPages > 1 || directMembersSource.length >= PERFORMANCE_PAGE_SIZE);
   const canPerformancePrev = performancePage > 1 && !directListQuery.isFetching;
@@ -212,10 +248,14 @@ export default function MyTeamPage() {
 
   const currentLayers = useMemo(() => t("modules.team.layers", { count: maxDepth }), [maxDepth, t]);
 
-  const teamPerformance = pickBigInt(performanceLegs, ["team_perf"]);
-  const smallLegPerformance = pickBigInt(performanceLegs, ["small_leg_perf"]);
-  const bigLegPerformance = pickBigInt(performanceLegs, ["big_leg_perf"]);
-  const directListLoading = directListQuery.isLoading || referralInfoQuery.isLoading;
+  const currentPerformanceFields = performanceFieldMap[activePerformance];
+  const teamPerformanceCandidate = pickBigIntCandidate(referralInfo, currentPerformanceFields.team);
+  const smallLegPerformanceCandidate = pickBigIntCandidate(referralInfo, currentPerformanceFields.small);
+  const teamPerformance = teamPerformanceCandidate.found ? teamPerformanceCandidate.value : pickBigInt(performanceLegs, ["team_perf"]);
+  const smallLegPerformance = smallLegPerformanceCandidate.found ? smallLegPerformanceCandidate.value : pickBigInt(performanceLegs, ["small_leg_perf"]);
+  const fallbackBigLegPerformance = pickBigInt(performanceLegs, ["big_leg_perf"]);
+  const bigLegPerformance = teamPerformance > smallLegPerformance ? teamPerformance - smallLegPerformance : fallbackBigLegPerformance;
+  const directListLoading = directListQuery.isLoading || referralInfoQuery.isLoading || directPerformanceQuery.isLoading;
   const teamLoading = referralInfoQuery.isLoading || networkDataQuery.isLoading || performanceLegsQuery.isLoading;
 
   const renderPerformanceRows = () => {
@@ -240,8 +280,9 @@ export default function MyTeamPage() {
     }
 
     return visibleDirectMembers.map((member, index) => {
-      const address = member.address ?? member.user ?? member.wallet ?? member.account ?? "";
-      const performance = getMemberPerformance(member, activePerformance);
+      const address = getMemberAddress(member);
+      const performanceSource = directPerformanceMap.get(String(address).toLowerCase()) || member;
+      const performance = getMemberPerformance(performanceSource, activePerformance);
 
       return (
         <tr key={`${activePerformance}-${address || "direct"}-${index}`}>
