@@ -414,17 +414,16 @@ export default function MiningPage() {
   }, [isAmountValid, projectedCost, selectedModel]);
 
   const summaryCards = useMemo(() => {
-    const holdings = purchasedMachines.length;
     const totalOutputValue = purchasedMachines.reduce((sum, item) => {
       const raw = Number(item.output.replace(/[^\d.]/g, ""));
       return sum + (Number.isFinite(raw) ? raw : 0);
     }, 0);
 
     return [
-      { label: t("modules.mining.summary.holdings"), value: holdings },
+      { label: t("modules.mining.summary.holdings"), value: `${formatTokenAmount(chainNeteBalance, 18, 4)} NETE` },
       { label: t("modules.mining.summary.output"), value: totalOutputValue.toLocaleString(undefined, { maximumFractionDigits: 4 }), accent: true },
     ];
-  }, [purchasedMachines, t]);
+  }, [chainNeteBalance, purchasedMachines, t]);
 
   const planStats = useMemo(() => {
     const maxRate = visibleMachineModels.reduce((max, item) => Math.max(max, parsePercent(item.returnRate)), 0);
@@ -943,6 +942,9 @@ export default function MiningPage() {
               </div>
             </div>
             <div className="mining-panel-card">
+              <div className="mining-portfolio-count-title">
+                {t("modules.mining.portfolio.holdingTitle", { count: portfolioRows.length })}
+              </div>
               <div className="mining-portfolio-list">
                 {portfolioRows.length === 0 ? (
                   <article className="mining-portfolio-item mining-empty-state">
