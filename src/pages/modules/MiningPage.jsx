@@ -978,13 +978,11 @@ export default function MiningPage() {
                           </div>
                         </div>
                         <span className="mining-chip mining-chip--status">
-                          {machine.canClaim
-                            ? t("modules.mining.portfolio.pending")
-                            : machine.isEnded
-                              ? t("modules.mining.statuses.ended")
-                              : machine.isPendingRepurchase
-                                ? t("modules.mining.statuses.pendingRepurchase")
-                                : t("modules.mining.statuses.running")}
+                          {machine.isEnded
+                            ? t("modules.mining.statuses.ended")
+                            : machine.isPendingRepurchase
+                              ? t("modules.mining.statuses.pendingRepurchase")
+                              : t("modules.mining.statuses.running")}
                         </span>
                       </div>
 

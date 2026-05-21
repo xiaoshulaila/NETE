@@ -687,6 +687,15 @@ export async function bindReferrer(account, referrer) {
   });
 }
 
+export async function readNetworkReferrer(user) {
+  return read({
+    address: assertContractAddress("neteNetwork"),
+    abi: neteNetworkAbi,
+    functionName: "getReferrer",
+    args: [user],
+  });
+}
+
 export async function claimWithSignature(account, claimMessage) {
   const payload = {
     user: claimMessage.user,

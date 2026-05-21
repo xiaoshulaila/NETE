@@ -5,7 +5,7 @@ import { useTranslation } from "react-i18next";
 import { Icon } from "@iconify/react";
 import { useWalletConnector } from "../../hooks/useWalletConnector";
 import { getReferralInfo } from "../../services/neteApi";
-import { bindReferrer } from "../../services/neteContracts";
+import { bindReferrer, readNetworkReferrer } from "../../services/neteContracts";
 import { isValidAddress } from "../../utils/formatters";
 
 const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
@@ -13,6 +13,20 @@ const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
 function hasReferrer(value) {
   const referrer = String(value || "").toLowerCase();
   return Boolean(referrer) && referrer !== ZERO_ADDRESS;
+}
+
+function isAlreadyBoundError(error) {
+  const message = error instanceof Error ? error.message : String(error || "");
+  return message.includes("AlreadyBound") || message.includes("0x682a9065");
+}
+
+function getBindErrorMessage(error, t) {
+  const message = error instanceof Error ? error.message : String(error || "");
+  if (isAlreadyBoundError(error)) return t("modules.team.messages.alreadyBound");
+  if (message.includes("SelfReferral")) return t("modules.team.messages.selfAddress");
+  if (message.includes("ZeroAddress")) return t("modules.team.messages.zeroAddress");
+  if (message.includes("CircularReferral")) return t("modules.team.messages.circularReferral");
+  return message || t("modules.team.messages.failed");
 }
 
 export default function ReferralBindGate() {
@@ -44,13 +58,22 @@ export default function ReferralBindGate() {
     staleTime: 15_000,
     retry: 1,
   });
+  const networkReferrerQuery = useQuery({
+    queryKey: ["nete", "network-referrer", wallet.currentAddress],
+    queryFn: () => readNetworkReferrer(wallet.currentAddress),
+    enabled: Boolean(wallet.currentAddress),
+    staleTime: 15_000,
+    retry: 1,
+  });
 
   const locallyBound = Boolean(wallet.currentAddress)
     && boundWalletAddress.toLowerCase() === String(wallet.currentAddress).toLowerCase();
-  const referrerMissing = !hasReferrer(referralInfoQuery.data?.referrer);
+  const referrerLoading = referralInfoQuery.isLoading || networkReferrerQuery.isLoading;
+  const referrerError = referralInfoQuery.isError && networkReferrerQuery.isError;
+  const referrerMissing = !hasReferrer(networkReferrerQuery.data) && !hasReferrer(referralInfoQuery.data?.referrer);
   const shouldShowBindModal = wallet.isConnected
-    && !referralInfoQuery.isLoading
-    && !referralInfoQuery.isError
+    && !referrerLoading
+    && !referrerError
     && !bindModalDismissed
     && !locallyBound
     && referrerMissing;
@@ -62,19 +85,23 @@ export default function ReferralBindGate() {
   }, [wallet.currentAddress]);
 
   useEffect(() => {
-    if (!bindModalDismissed || !wallet.isConnected || referralInfoQuery.isLoading || referralInfoQuery.isError || locallyBound || !referrerMissing) {
+    if (!bindModalDismissed || !wallet.isConnected || referrerLoading || referrerError || locallyBound || !referrerMissing) {
       return undefined;
     }
 
     const timer = window.setTimeout(() => setBindModalDismissed(false), 1800);
     return () => window.clearTimeout(timer);
-  }, [bindModalDismissed, locallyBound, referralInfoQuery.isError, referralInfoQuery.isLoading, referrerMissing, wallet.isConnected]);
+  }, [bindModalDismissed, locallyBound, referrerError, referrerLoading, referrerMissing, wallet.isConnected]);
 
   const handleBindReferrer = async () => {
     const referrer = referrerInput.trim();
 
     if (!isValidAddress(referrer)) {
       setBindNotice(t("modules.team.messages.invalidAddress"));
+      return;
+    }
+    if (!hasReferrer(referrer)) {
+      setBindNotice(t("modules.team.messages.zeroAddress"));
       return;
     }
     if (referrer.toLowerCase() === String(wallet.currentAddress || "").toLowerCase()) {
@@ -92,11 +119,21 @@ export default function ReferralBindGate() {
       setBindModalDismissed(false);
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["nete", "referral-info", wallet.currentAddress] }),
+        queryClient.invalidateQueries({ queryKey: ["nete", "network-referrer", wallet.currentAddress] }),
         queryClient.invalidateQueries({ queryKey: ["nete", "network-data", wallet.currentAddress] }),
       ]);
     } catch (error) {
-      const message = error instanceof Error ? error.message : t("modules.team.messages.failed");
-      setBindNotice(message);
+      if (isAlreadyBoundError(error)) {
+        setBoundWalletAddress(wallet.currentAddress || "");
+        setBindNotice(t("modules.team.messages.alreadyBound"));
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: ["nete", "referral-info", wallet.currentAddress] }),
+          queryClient.invalidateQueries({ queryKey: ["nete", "network-referrer", wallet.currentAddress] }),
+          queryClient.invalidateQueries({ queryKey: ["nete", "network-data", wallet.currentAddress] }),
+        ]);
+        return;
+      }
+      setBindNotice(getBindErrorMessage(error, t));
     } finally {
       setBinding(false);
     }
