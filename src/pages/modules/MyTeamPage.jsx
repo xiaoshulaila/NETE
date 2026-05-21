@@ -17,22 +17,15 @@ const performanceFieldMap = {
   miner: {
     own: ["miner_perf", "own_miner_perf", "miner_own_perf", "mining_own_perf", "own_mining_perf", "mining_perf", "own_perf"],
     team: ["subtree_miner_perf", "miner_team_perf", "team_miner_perf", "mining_team_perf", "team_mining_perf", "team_perf"],
-    direct: ["miner_perf", "own_miner_perf", "miner_direct_perf", "direct_miner_perf", "mining_direct_perf", "direct_mining_perf", "direct_perf", "performance", "total_perf"],
     big: ["big_leg_miner_perf", "miner_big_leg_perf", "big_miner_perf", "mining_big_leg_perf", "big_mining_perf", "big_leg_perf"],
     small: ["small_leg_miner_perf", "miner_small_leg_perf", "small_miner_perf", "mining_small_leg_perf", "small_mining_perf", "small_leg_perf"],
   },
   seed: {
     own: ["presale_perf", "own_seed_perf", "seed_own_perf", "presale_own_perf", "own_presale_perf", "seed_perf"],
     team: ["subtree_seed_perf", "seed_team_perf", "team_seed_perf", "presale_team_perf", "team_presale_perf", "team_perf"],
-    direct: ["presale_perf", "own_seed_perf", "seed_direct_perf", "direct_seed_perf", "presale_direct_perf", "direct_presale_perf"],
     big: ["seed_big_leg_perf", "big_seed_perf", "presale_big_leg_perf", "big_presale_perf", "big_leg_perf"],
     small: ["small_leg_seed_perf", "seed_small_leg_perf", "small_seed_perf", "presale_small_leg_perf", "small_presale_perf"],
   },
-};
-
-const teamCountFieldMap = {
-  miner: ["miner_team_count", "mining_team_count", "team_count", "subtree_count", "member_count", "downline_count", "direct_count"],
-  seed: ["seed_team_count", "presale_team_count", "team_count", "subtree_count", "member_count", "downline_count", "direct_count"],
 };
 
 function toItems(payload) {
@@ -70,6 +63,22 @@ function toBigIntSafe(value) {
   }
 }
 
+function pickField(source, keys) {
+  for (const key of keys) {
+    if (source?.[key] !== undefined && source?.[key] !== null && source?.[key] !== "") {
+      return source[key];
+    }
+  }
+  return undefined;
+}
+
+function pickAccountField(account, name, index) {
+  if (!account) return undefined;
+  if (account[name] !== undefined) return account[name];
+  if (Array.isArray(account) && account[index] !== undefined) return account[index];
+  return undefined;
+}
+
 function pickBigIntCandidate(source, keys) {
   for (const key of keys) {
     if (source?.[key] !== undefined && source?.[key] !== null && source?.[key] !== "") {
@@ -83,34 +92,57 @@ function pickBigInt(source, keys) {
   return pickBigIntCandidate(source, keys).value;
 }
 
-function pickNumber(source, keys) {
-  for (const key of keys) {
-    if (source?.[key] !== undefined && source?.[key] !== null && source?.[key] !== "") {
-      const value = Number(source[key]);
-      return Number.isFinite(value) ? value : 0;
-    }
-  }
-  return 0;
-}
-
 function getMemberAddress(member) {
   if (typeof member === "string") return member;
   return member?.address ?? member?.user ?? member?.wallet ?? member?.account ?? "";
 }
 
-function getMemberPerformance(member, type) {
-  const fields = performanceFieldMap[type];
-  const own = pickBigInt(member, fields.own);
-  const direct = pickBigIntCandidate(member, fields.direct);
-  const team = pickBigIntCandidate(member, fields.team);
-  const big = pickBigIntCandidate(member, fields.big);
-  const small = pickBigIntCandidate(member, fields.small);
+function toUnixSeconds(value) {
+  if (value === null || value === undefined || value === "") return 0;
+  const text = String(value).trim();
+  const numeric = /^\d+$/.test(text) ? Number(text) : Number.NaN;
+  const seconds = Number.isFinite(numeric) ? numeric : Math.floor(Date.parse(text) / 1000);
 
-  return {
-    direct: direct.found ? direct.value : (big.found ? big.value : own),
-    team: team.found ? team.value : small.value,
-    teamCount: pickNumber(member, teamCountFieldMap[type]),
-  };
+  if (!Number.isFinite(seconds) || seconds <= 0) return 0;
+  return seconds > 1_000_000_000_000 ? Math.floor(seconds / 1000) : Math.floor(seconds);
+}
+
+function getMemberJoinedAt(member) {
+  const joinedAt = toUnixSeconds(pickField(member, [
+    "joined_at",
+    "joinedAt",
+    "join_time",
+    "joinTime",
+    "bound_at",
+    "boundAt",
+    "created_at",
+    "createdAt",
+    "registered_at",
+    "registeredAt",
+    "updated_at",
+    "updatedAt",
+    "timestamp",
+  ]));
+
+  if (joinedAt > 0) return joinedAt;
+
+  const account = member?.referralAccount ?? member?.referral_account;
+  return toUnixSeconds(pickAccountField(account, "updatedAt", 3));
+}
+
+function getMemberPersonalPerformance(member, type) {
+  return pickBigInt(member, performanceFieldMap[type].own);
+}
+
+function formatJoinedDate(seconds) {
+  const value = Number(seconds || 0);
+  if (!Number.isFinite(value) || value <= 0) return "--";
+  const date = new Date(value * 1000);
+  if (Number.isNaN(date.getTime())) return "--";
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
 
 function getFallbackDirects(source, type) {
@@ -128,19 +160,6 @@ function getFallbackDirects(source, type) {
     source.direct_list ??
     source.children ??
     source.members
-  );
-}
-
-function renderMetricHeader(label) {
-  const text = String(label ?? "");
-  const match = text.match(/^(.*?)(?:（(.+)）|\s*\((.+)\))$/);
-  if (!match) return text;
-
-  return (
-    <span className="team-table-head-label">
-      <span>{match[1]}</span>
-      <small>{match[2] || match[3]}</small>
-    </span>
   );
 }
 
@@ -221,11 +240,12 @@ export default function MyTeamPage() {
     queryKey: ["nete", "referral-downline-performance", activePerformance, visibleDirectAddresses],
     queryFn: async () => {
       const rows = await Promise.all(visibleDirectAddresses.map(async (address) => {
-        const [referral, personal] = await Promise.all([
+        const [referral, personal, networkData] = await Promise.all([
           getReferralInfo(address).catch(() => ({})),
           getPersonalPerformance(address).catch(() => ({})),
+          readNetworkUserData(address).catch(() => ({})),
         ]);
-        return { address, ...referral, ...personal };
+        return { address, ...referral, ...personal, referralAccount: networkData.referralAccount };
       }));
       return rows;
     },
@@ -261,36 +281,32 @@ export default function MyTeamPage() {
   const renderPerformanceRows = () => {
     if (directListLoading) {
       return (
-        <tr className="module-loading-row">
-          <td colSpan={4}>
-            <LoadingState variant="list" rows={4} cells={4} />
-          </td>
-        </tr>
+        <div className="team-performance-state">
+          <LoadingState variant="list" rows={4} cells={3} />
+        </div>
       );
     }
 
     if (visibleDirectMembers.length === 0) {
       return (
-        <tr className="team-empty-row">
-          <td colSpan={4}>
-            <div className="module-empty-state">{t("modules.team.emptyIncomeDetails")}</div>
-          </td>
-        </tr>
+        <div className="team-performance-state">
+          <div className="module-empty-state">{t("modules.team.emptyIncomeDetails")}</div>
+        </div>
       );
     }
 
     return visibleDirectMembers.map((member, index) => {
       const address = getMemberAddress(member);
       const performanceSource = directPerformanceMap.get(String(address).toLowerCase()) || member;
-      const performance = getMemberPerformance(performanceSource, activePerformance);
+      const personalPerformance = getMemberPersonalPerformance(performanceSource, activePerformance);
+      const joinedAt = getMemberJoinedAt(performanceSource) || getMemberJoinedAt(member);
 
       return (
-        <tr key={`${activePerformance}-${address || "direct"}-${index}`}>
-          <td className="team-address-cell font-mono text-xs text-[#caff00]">{address ? shortAddress(address, 4, 4) : "--"}</td>
-          <td>{performance.teamCount}</td>
-          <td>{formatTokenAmount(performance.direct, 18, 1)}</td>
-          <td>{formatTokenAmount(performance.team, 18, 1)}</td>
-        </tr>
+        <div className="team-performance-row" key={`${activePerformance}-${address || "direct"}-${index}`}>
+          <span className="team-performance-cell team-address-cell font-mono text-xs text-[#caff00]" title={address || undefined}>{address ? shortAddress(address, 4, 4) : "--"}</span>
+          <span className="team-performance-cell">{formatJoinedDate(joinedAt)}</span>
+          <span className="team-performance-cell">{formatTokenAmount(personalPerformance, 18, 1)}</span>
+        </div>
       );
     });
   };
@@ -360,17 +376,14 @@ export default function MyTeamPage() {
         </div>
 
         <div className="module-table-wrap">
-          <table className="module-table team-performance-table md:text-sm">
-            <thead>
-              <tr>
-                <th>{t("modules.team.address")}</th>
-                <th>{t("modules.team.teamCount")}</th>
-                <th>{renderMetricHeader(t("modules.team.directPerformance"))}</th>
-                <th>{renderMetricHeader(t("modules.team.teamPerformance"))}</th>
-              </tr>
-            </thead>
-            <tbody>{renderPerformanceRows()}</tbody>
-          </table>
+          <div className="team-performance-list" role="table">
+            <div className="team-performance-row team-performance-head" role="row">
+              <span className="team-performance-cell" role="columnheader">{t("modules.team.address")}</span>
+              <span className="team-performance-cell" role="columnheader">{t("modules.team.joinedAt")}</span>
+              <span className="team-performance-cell" role="columnheader">{t("modules.team.personalPerformance")}</span>
+            </div>
+            <div className="team-performance-body" role="rowgroup">{renderPerformanceRows()}</div>
+          </div>
         </div>
         {showPerformancePagination ? (
           <div className="my-detail-pagination team-performance-pagination" aria-label={t("modules.team.pagination.label")}>

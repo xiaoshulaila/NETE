@@ -467,7 +467,7 @@ export const moduleTranslations = {
         nete: "钱包余额",
         principalPool: "本金池余额",
         profitPool: "收益池余额",
-        ownPerformance: "个人业绩",
+        ownPerformance: "矿机业绩",
         usdt: "USDT 余额",
         referral: "加速奖待领取",
         dividend: "级别待领取",
@@ -552,6 +552,8 @@ export const moduleTranslations = {
       teamCount: "团队人数",
       directPerformance: "直推业绩（NETE）",
       teamPerformance: "团队业绩（NETE）",
+      joinedAt: "加入时间",
+      personalPerformance: "个人业绩（NETE）",
       pagination: {
         label: "业绩明细分页",
         prev: "上一页",
@@ -1054,7 +1056,7 @@ export const moduleTranslations = {
         nete: "Wallet Balance",
         principalPool: "Principal Pool",
         profitPool: "Profit Pool",
-        ownPerformance: "Own Performance",
+        ownPerformance: "Miner Performance",
         usdt: "USDT Balance",
         referral: "Pending Acceleration Reward",
         dividend: "Pending Level Reward",
@@ -1139,6 +1141,8 @@ export const moduleTranslations = {
       teamCount: "Team Count",
       directPerformance: "Direct Performance (NETE)",
       teamPerformance: "Team Performance (NETE)",
+      joinedAt: "Join Time",
+      personalPerformance: "Personal Performance (NETE)",
       pagination: {
         label: "Performance details pagination",
         prev: "Prev",
@@ -1300,6 +1304,9 @@ moduleTranslations["zh-TW"] = mergeTranslations(moduleTranslations.zh, {
     performanceTabs: {
       seed: "種子業績",
     },
+    address: "地址",
+    joinedAt: "加入時間",
+    personalPerformance: "個人業績（NETE）",
     emptyIncomeDetails: "暫無明細",
     pagination: {
       label: "業績明細分頁",
@@ -1423,6 +1430,9 @@ moduleTranslations.ja = mergeTranslations(moduleTranslations.en, {
     performanceTabs: {
       seed: "シード実績",
     },
+    address: "アドレス",
+    joinedAt: "参加時間",
+    personalPerformance: "個人実績（NETE）",
     emptyIncomeDetails: "明細はまだありません",
     pagination: {
       label: "実績明細ページネーション",
@@ -1546,6 +1556,9 @@ moduleTranslations.ko = mergeTranslations(moduleTranslations.en, {
     performanceTabs: {
       seed: "시드 실적",
     },
+    address: "주소",
+    joinedAt: "가입 시간",
+    personalPerformance: "개인 실적（NETE）",
     emptyIncomeDetails: "상세 내역이 없습니다",
     pagination: {
       label: "실적 상세 페이지",

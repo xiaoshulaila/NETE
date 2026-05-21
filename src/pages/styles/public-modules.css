@@ -179,41 +179,55 @@
   color: #10150e;
 }
 
-.module-table.team-performance-table {
+.team-performance-list {
   width: 100%;
   min-width: 0;
-  table-layout: fixed;
+  font-size: 11px;
 }
 
-.module-table.team-performance-table th,
-.module-table.team-performance-table td {
-  padding: 11px 6px;
+.team-performance-row {
+  display: grid;
+  grid-template-columns: minmax(0, 0.95fr) minmax(0, 1fr) minmax(0, 1fr);
+  align-items: center;
+  column-gap: 6px;
+  min-width: 0;
+  padding: 11px 10px;
+  border-top: 1px solid var(--module-line);
 }
 
-.module-table.team-performance-table th {
-  white-space: normal;
+.team-performance-head {
+  border-top: 0;
+  background: rgba(255, 255, 255, 0.035);
+  color: rgba(255, 255, 255, 0.62);
+  font-weight: 700;
 }
 
-.module-table.team-performance-table td {
+.team-performance-body .team-performance-row:first-child {
+  border-top: 1px solid var(--module-line);
+}
+
+.team-performance-cell {
+  min-width: 0;
   overflow: hidden;
+  color: rgba(255, 255, 255, 0.86);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.team-performance-table th:first-child,
-.team-performance-table td:first-child {
+.team-performance-head .team-performance-cell {
+  color: inherit;
+  white-space: normal;
+}
+
+.team-performance-cell:first-child {
   text-align: left;
 }
 
-.team-performance-table th:nth-child(2),
-.team-performance-table td:nth-child(2),
-.team-performance-table th:nth-child(3),
-.team-performance-table td:nth-child(3) {
+.team-performance-cell:nth-child(2) {
   text-align: center;
 }
 
-.team-performance-table th:last-child,
-.team-performance-table td:last-child {
+.team-performance-cell:last-child {
   text-align: right;
 }
 
@@ -221,17 +235,13 @@
   min-width: 0;
 }
 
-.team-table-head-label {
-  display: inline-grid;
-  gap: 2px;
-  line-height: 1.15;
-  text-align: center;
+.team-performance-state {
+  padding: 12px 10px;
+  border-top: 1px solid var(--module-line);
 }
 
-.team-table-head-label small {
-  color: rgba(255, 255, 255, 0.5);
-  font-size: 10px;
-  font-weight: 800;
+.team-income-card .module-table-wrap {
+  overflow-x: hidden;
 }
 
 .my-account-page {
@@ -618,7 +628,7 @@
 .my-detail-row strong {
   color: var(--module-accent);
   font-family: var(--font-mono, "Cascadia Mono", "SFMono-Regular", Consolas, monospace);
-  font-size: 17px;
+  font-size: 12px;
   font-weight: 900;
   line-height: 1;
   letter-spacing: 0;
@@ -643,7 +653,7 @@
   border-radius: 999px;
   background: #302653;
   color: #e8e0ff;
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 800;
   line-height: 1.2;
   text-overflow: ellipsis;
@@ -653,6 +663,12 @@
 .my-type-badge--airdrop {
   background: rgba(118, 245, 196, 0.14);
   color: #76f5c4;
+}
+
+.my-type-badge--miner {
+  padding: 0;
+  background: transparent;
+  color: #fff;
 }
 
 .my-type-badge--starter {
@@ -783,7 +799,7 @@
   }
 
   .my-detail-row strong {
-    font-size: 16px;
+    font-size: 13px;
   }
 
   .my-detail-pagination {

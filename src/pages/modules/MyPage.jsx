@@ -201,7 +201,7 @@ function normalizeLedgerRow(row, index, t) {
     id: `${row?.id ?? row?.tx_hash ?? row?.txHash ?? "row"}-${index}`,
     createdAtText: getLedgerTimeText(row),
     type: mergedMinerType || getLedgerType(row, t),
-    typeTone: mergedMinerType ? minerTag.tone : "",
+    typeTone: mergedMinerType ? "miner" : "",
     amountText,
     balanceText: formatTokenAmount(row?.balance ?? row?.remain ?? 0n, 18, 6),
     txHash: String(row?.tx_hash ?? row?.txHash ?? row?.tx ?? "--"),
