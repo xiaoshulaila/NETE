@@ -444,7 +444,7 @@ export const moduleTranslations = {
       connectHint: "当前未连接钱包，连接后可查看完整资产与收益信息。",
       accountInfo: "账户信息",
       inviteTitle: "邀请分享",
-      inviteDesc: "邀请好友享5%加速奖励，共享生态红利，链上规则自动分配。",
+      inviteDesc: "邀请好友享5%~1%加速奖励",
       copy: "复制",
       share: "分享",
       assetTag: "账户资产",
@@ -547,6 +547,13 @@ export const moduleTranslations = {
       teamCount: "团队人数",
       directPerformance: "直推业绩（NETE）",
       teamPerformance: "团队业绩（NETE）",
+      pagination: {
+        label: "业绩明细分页",
+        prev: "上一页",
+        next: "下一页",
+        page: "第 {{page}} 页",
+        pageWithTotal: "{{page}} / {{total}}",
+      },
       incomeDetailTitle: "收益明细",
       bindOnce: "绑定推荐人（仅一次）",
       bindPromptTitle: "请先绑定邀请人",
@@ -559,7 +566,7 @@ export const moduleTranslations = {
       address: "地址",
       performance: "业绩（NETE）",
       level: "等级",
-      emptyIncomeDetails: "暂无收益明细",
+      emptyIncomeDetails: "暂无明细",
       emptyDirects: "暂无直推成员",
       messages: {
         connectWallet: "请先连接钱包",
@@ -1016,7 +1023,7 @@ export const moduleTranslations = {
       connectHint: "Connect your wallet to view full assets and earnings.",
       accountInfo: "Account Info",
       inviteTitle: "Invite Sharing",
-      inviteDesc: "Invite friends to enjoy a 5% acceleration reward and share ecosystem dividends through automatic on-chain rules.",
+      inviteDesc: "Invite friends to enjoy 5%~1% acceleration rewards.",
       copy: "Copy",
       share: "Share",
       assetTag: "Account Assets",
@@ -1119,6 +1126,13 @@ export const moduleTranslations = {
       teamCount: "Team Count",
       directPerformance: "Direct Performance (NETE)",
       teamPerformance: "Team Performance (NETE)",
+      pagination: {
+        label: "Performance details pagination",
+        prev: "Prev",
+        next: "Next",
+        page: "Page {{page}}",
+        pageWithTotal: "{{page}} / {{total}}",
+      },
       incomeDetailTitle: "Income Details",
       bindOnce: "Bind referrer (one time only)",
       bindPromptTitle: "Bind Referrer First",
@@ -1131,7 +1145,7 @@ export const moduleTranslations = {
       address: "Address",
       performance: "Performance (NETE)",
       level: "Level",
-      emptyIncomeDetails: "No income details yet",
+      emptyIncomeDetails: "No details yet",
       emptyDirects: "No direct referrals yet",
       messages: {
         connectWallet: "Please connect your wallet first",
@@ -1220,7 +1234,7 @@ moduleTranslations["zh-TW"] = mergeTranslations(moduleTranslations.zh, {
   my: {
     accountTitle: "鏈上資產全掌控",
     desc: "鏈上資產、收益與推薦資訊一站式彙總，支援分享 / V級分紅 / V級獎勵領取。",
-    inviteDesc: "邀請好友享5%加速獎勵，共享生態紅利，鏈上規則自動分配。",
+    inviteDesc: "邀請好友享5%~1%加速獎勵",
     share: "分享",
     unbound: "未綁定",
     detailTitle: "收益明細",
@@ -1261,6 +1275,14 @@ moduleTranslations["zh-TW"] = mergeTranslations(moduleTranslations.zh, {
     },
     performanceTabs: {
       seed: "種子業績",
+    },
+    emptyIncomeDetails: "暫無明細",
+    pagination: {
+      label: "業績明細分頁",
+      prev: "上一頁",
+      next: "下一頁",
+      page: "第 {{page}} 頁",
+      pageWithTotal: "{{page}} / {{total}}",
     },
   },
 });
@@ -1327,7 +1349,7 @@ moduleTranslations.ja = mergeTranslations(moduleTranslations.en, {
   my: {
     accountTitle: "オンチェーン資産を一括管理",
     desc: "資産、収益、紹介情報を集約し、共有報酬とVレベル報酬を受け取れます。",
-    inviteDesc: "友人を招待して5%の加速報酬を得ながら、オンチェーンルールでエコシステム利益を共有できます。",
+    inviteDesc: "友人を招待して5%~1%の加速報酬を獲得。",
     share: "共有",
     unbound: "未連携",
     detailTitle: "収益明細",
@@ -1368,6 +1390,14 @@ moduleTranslations.ja = mergeTranslations(moduleTranslations.en, {
     },
     performanceTabs: {
       seed: "シード実績",
+    },
+    emptyIncomeDetails: "明細はまだありません",
+    pagination: {
+      label: "実績明細ページネーション",
+      prev: "前へ",
+      next: "次へ",
+      page: "{{page}}ページ",
+      pageWithTotal: "{{page}} / {{total}}",
     },
   },
 });
@@ -1434,7 +1464,7 @@ moduleTranslations.ko = mergeTranslations(moduleTranslations.en, {
   my: {
     accountTitle: "온체인 자산 통합 관리",
     desc: "자산, 수익, 추천 정보를 한곳에서 확인하고 공유/V레벨 보상을 수령합니다.",
-    inviteDesc: "친구를 초대해 5% 가속 보상을 받고 온체인 규칙으로 생태계 보상을 공유하세요.",
+    inviteDesc: "친구를 초대해 5%~1% 가속 보상을 받으세요.",
     share: "공유",
     unbound: "미연결",
     detailTitle: "수익 상세",
@@ -1475,6 +1505,14 @@ moduleTranslations.ko = mergeTranslations(moduleTranslations.en, {
     },
     performanceTabs: {
       seed: "시드 실적",
+    },
+    emptyIncomeDetails: "상세 내역이 없습니다",
+    pagination: {
+      label: "실적 상세 페이지",
+      prev: "이전",
+      next: "다음",
+      page: "{{page}}페이지",
+      pageWithTotal: "{{page}} / {{total}}",
     },
   },
 });

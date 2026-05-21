@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import LoadingState from "../../components/common/LoadingState";
@@ -11,18 +11,21 @@ const performanceTabs = [
   { key: "miner", labelKey: "modules.team.performanceTabs.miner" },
   { key: "seed", labelKey: "modules.team.performanceTabs.seed" },
 ];
+const PERFORMANCE_PAGE_SIZE = 10;
 
 const performanceFieldMap = {
   miner: {
     own: ["miner_own_perf", "own_miner_perf", "mining_own_perf", "own_mining_perf", "miner_perf", "mining_perf", "own_perf"],
     team: ["miner_team_perf", "team_miner_perf", "mining_team_perf", "team_mining_perf", "team_perf"],
     direct: ["miner_direct_perf", "direct_miner_perf", "mining_direct_perf", "direct_mining_perf", "direct_perf", "performance", "total_perf"],
+    big: ["miner_big_leg_perf", "big_miner_perf", "mining_big_leg_perf", "big_mining_perf", "big_leg_perf"],
     small: ["miner_small_leg_perf", "small_miner_perf", "mining_small_leg_perf", "small_mining_perf", "small_leg_perf"],
   },
   seed: {
     own: ["seed_own_perf", "own_seed_perf", "presale_own_perf", "own_presale_perf", "seed_perf", "presale_perf"],
     team: ["seed_team_perf", "team_seed_perf", "presale_team_perf", "team_presale_perf", "team_perf"],
     direct: ["seed_direct_perf", "direct_seed_perf", "presale_direct_perf", "direct_presale_perf"],
+    big: ["seed_big_leg_perf", "big_seed_perf", "presale_big_leg_perf", "big_presale_perf", "big_leg_perf"],
     small: ["seed_small_leg_perf", "small_seed_perf", "presale_small_leg_perf", "small_presale_perf"],
   },
 };
@@ -39,6 +42,22 @@ function toItems(payload) {
   return [];
 }
 
+function toTotalCount(payload) {
+  const candidates = [
+    payload?.total,
+    payload?.total_count,
+    payload?.totalCount,
+    payload?.count,
+    payload?.data?.total,
+    payload?.data?.total_count,
+    payload?.data?.totalCount,
+    payload?.pagination?.total,
+    payload?.data?.pagination?.total,
+  ];
+  const total = candidates.map(Number).find((value) => Number.isFinite(value) && value >= 0);
+  return total ?? 0;
+}
+
 function toBigIntSafe(value) {
   if (typeof value === "bigint") return value;
   if (value === null || value === undefined || value === "") return 0n;
@@ -49,18 +68,22 @@ function toBigIntSafe(value) {
   }
 }
 
-function pickBigInt(source, keys) {
+function pickBigIntCandidate(source, keys) {
   for (const key of keys) {
-    if (source?.[key] !== undefined && source?.[key] !== null) {
-      return toBigIntSafe(source[key]);
+    if (source?.[key] !== undefined && source?.[key] !== null && source?.[key] !== "") {
+      return { found: true, value: toBigIntSafe(source[key]) };
     }
   }
-  return 0n;
+  return { found: false, value: 0n };
+}
+
+function pickBigInt(source, keys) {
+  return pickBigIntCandidate(source, keys).value;
 }
 
 function pickNumber(source, keys) {
   for (const key of keys) {
-    if (source?.[key] !== undefined && source?.[key] !== null) {
+    if (source?.[key] !== undefined && source?.[key] !== null && source?.[key] !== "") {
       const value = Number(source[key]);
       return Number.isFinite(value) ? value : 0;
     }
@@ -71,10 +94,14 @@ function pickNumber(source, keys) {
 function getMemberPerformance(member, type) {
   const fields = performanceFieldMap[type];
   const own = pickBigInt(member, fields.own);
+  const direct = pickBigIntCandidate(member, fields.direct);
+  const team = pickBigIntCandidate(member, fields.team);
+  const big = pickBigIntCandidate(member, fields.big);
+  const small = pickBigIntCandidate(member, fields.small);
 
   return {
-    direct: pickBigInt(member, fields.direct) || own,
-    team: pickBigInt(member, fields.team),
+    direct: direct.found ? direct.value : (big.found ? big.value : own),
+    team: team.found ? team.value : small.value,
     teamCount: pickNumber(member, teamCountFieldMap[type]),
   };
 }
@@ -114,6 +141,7 @@ export default function MyTeamPage() {
   const { t } = useTranslation();
   const wallet = useWalletConnector();
   const [activePerformance, setActivePerformance] = useState("miner");
+  const [performancePage, setPerformancePage] = useState(1);
 
   const referralInfoQuery = useQuery({
     queryKey: ["nete", "referral-info", wallet.currentAddress],
@@ -140,8 +168,8 @@ export default function MyTeamPage() {
   });
 
   const directListQuery = useQuery({
-    queryKey: ["nete", "referral-directs", wallet.currentAddress, activePerformance],
-    queryFn: () => getReferralDirects(wallet.currentAddress, { page: 1, pageSize: 50, type: activePerformance }).catch(() => []),
+    queryKey: ["nete", "referral-directs", wallet.currentAddress, activePerformance, performancePage],
+    queryFn: () => getReferralDirects(wallet.currentAddress, { page: performancePage, pageSize: PERFORMANCE_PAGE_SIZE, type: activePerformance }).catch(() => []),
     enabled: Boolean(wallet.currentAddress),
     staleTime: 0,
     retry: 0,
@@ -153,13 +181,33 @@ export default function MyTeamPage() {
   const maxDepth = Number(referralInfo.max_depth ?? 0);
   const currentLevel = performanceLegs.user_level ?? referralInfo.user_level ?? networkDataQuery.data?.userLevel ?? 0;
 
-  const directMembers = useMemo(
-    () => {
-      const apiRows = toItems(directListQuery.data);
-      if (apiRows.length > 0) return apiRows;
-      return getFallbackDirects(referralInfo, activePerformance);
-    },
-    [activePerformance, directListQuery.data, referralInfo],
+  useEffect(() => {
+    setPerformancePage(1);
+  }, [activePerformance, wallet.currentAddress]);
+
+  const fallbackDirectMembers = useMemo(
+    () => getFallbackDirects(referralInfo, activePerformance),
+    [activePerformance, referralInfo],
+  );
+  const directApiRows = useMemo(() => toItems(directListQuery.data), [directListQuery.data]);
+  const directMembersSource = directApiRows.length > 0 ? directApiRows : fallbackDirectMembers;
+  const directTotalCount = toTotalCount(directListQuery.data);
+  const clientPaginatedDirects = directMembersSource.length > PERFORMANCE_PAGE_SIZE;
+  const directTotalPages = directTotalCount > 0
+    ? Math.max(1, Math.ceil(directTotalCount / PERFORMANCE_PAGE_SIZE))
+    : clientPaginatedDirects
+      ? Math.max(1, Math.ceil(directMembersSource.length / PERFORMANCE_PAGE_SIZE))
+      : 0;
+  const visibleDirectMembers = clientPaginatedDirects
+    ? directMembersSource.slice((performancePage - 1) * PERFORMANCE_PAGE_SIZE, performancePage * PERFORMANCE_PAGE_SIZE)
+    : directMembersSource;
+  const showPerformancePagination = !(directTotalCount > 0 && directTotalPages <= 1)
+    && (performancePage > 1 || directTotalPages > 1 || directMembersSource.length >= PERFORMANCE_PAGE_SIZE);
+  const canPerformancePrev = performancePage > 1 && !directListQuery.isFetching;
+  const canPerformanceNext = !directListQuery.isFetching && (
+    directTotalPages > 0
+      ? performancePage < directTotalPages
+      : directMembersSource.length === PERFORMANCE_PAGE_SIZE
   );
 
   const currentLayers = useMemo(() => t("modules.team.layers", { count: maxDepth }), [maxDepth, t]);
@@ -181,7 +229,7 @@ export default function MyTeamPage() {
       );
     }
 
-    if (directMembers.length === 0) {
+    if (visibleDirectMembers.length === 0) {
       return (
         <tr className="team-empty-row">
           <td colSpan={4}>
@@ -191,7 +239,7 @@ export default function MyTeamPage() {
       );
     }
 
-    return directMembers.map((member, index) => {
+    return visibleDirectMembers.map((member, index) => {
       const address = member.address ?? member.user ?? member.wallet ?? member.account ?? "";
       const performance = getMemberPerformance(member, activePerformance);
 
@@ -260,7 +308,10 @@ export default function MyTeamPage() {
               role="tab"
               aria-selected={activePerformance === tab.key}
               className={activePerformance === tab.key ? "is-active" : ""}
-              onClick={() => setActivePerformance(tab.key)}
+              onClick={() => {
+                setActivePerformance(tab.key);
+                setPerformancePage(1);
+              }}
             >
               {t(tab.labelKey)}
             </button>
@@ -280,6 +331,29 @@ export default function MyTeamPage() {
             <tbody>{renderPerformanceRows()}</tbody>
           </table>
         </div>
+        {showPerformancePagination ? (
+          <div className="my-detail-pagination team-performance-pagination" aria-label={t("modules.team.pagination.label")}>
+            <button
+              type="button"
+              disabled={!canPerformancePrev}
+              onClick={() => setPerformancePage((page) => Math.max(1, page - 1))}
+            >
+              {t("modules.team.pagination.prev")}
+            </button>
+            <span>
+              {directTotalPages > 0
+                ? t("modules.team.pagination.pageWithTotal", { page: performancePage, total: directTotalPages })
+                : t("modules.team.pagination.page", { page: performancePage })}
+            </span>
+            <button
+              type="button"
+              disabled={!canPerformanceNext}
+              onClick={() => setPerformancePage((page) => page + 1)}
+            >
+              {t("modules.team.pagination.next")}
+            </button>
+          </div>
+        ) : null}
       </article>
     </section>
   );

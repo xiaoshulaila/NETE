@@ -265,7 +265,7 @@ export default function LandingPage() {
               </p>
               <ul className="cta-section__list">
                 {ctaItems.map((item) => (
-                  <li key={item}>{item}</li>
+                  <li className="glass-card" key={item}>{item}</li>
                 ))}
               </ul>
               <div className="cta-section__actions">

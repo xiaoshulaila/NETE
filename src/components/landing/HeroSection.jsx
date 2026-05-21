@@ -50,7 +50,6 @@ export default function HeroSection() {
               autoPlay
               loop
               muted
-              defaultMuted
               playsInline
               controls={false}
               preload="metadata"

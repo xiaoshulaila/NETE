@@ -3039,3 +3039,90 @@
 .mining-btn--inline {
   width: 100%;
 }
+
+.mining-portfolio-item__top > div,
+.mining-portfolio-item__title,
+.mining-model-title__main {
+  min-width: 0;
+}
+
+.mining-portfolio-item__top > div {
+  flex: 1 1 auto;
+}
+
+.mining-model-title__main > span,
+.mining-model-title__main > small,
+.mining-chip {
+  white-space: nowrap;
+}
+
+.mining-chip--status {
+  flex: 0 0 auto;
+  justify-content: center;
+}
+
+@media (max-width: 520px) {
+  .mining-portfolio-actions {
+    gap: 6px;
+  }
+
+  .mining-portfolio-actions .mining-btn {
+    min-height: 44px;
+    padding: 0 7px;
+    font-size: 12px;
+    line-height: 1.1;
+    white-space: nowrap;
+  }
+
+  .mining-portfolio-item {
+    padding: 12px;
+  }
+
+  .mining-portfolio-item__top {
+    align-items: center;
+    gap: 8px;
+  }
+
+  .mining-model-title {
+    align-items: center;
+    gap: 6px;
+  }
+
+  .mining-model-title__main {
+    flex: 1 1 auto;
+    overflow: hidden;
+  }
+
+  .mining-model-title__main > span {
+    font-size: 0.95em;
+  }
+
+  .mining-model-title__main > small {
+    font-size: 0.58em;
+  }
+
+  .mining-portfolio-item .mining-model-title__suffix {
+    display: none;
+  }
+
+  .mining-chip {
+    min-height: 24px;
+    padding: 0 8px;
+    font-size: 11px;
+  }
+
+  .mining-reward-grid,
+  .mining-portfolio-grid {
+    gap: 8px;
+  }
+}
+
+@media (max-width: 360px) {
+  .mining-portfolio-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .mining-portfolio-item__top {
+    align-items: flex-start;
+  }
+}
