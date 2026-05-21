@@ -1406,9 +1406,9 @@ export default function MiningPage() {
 
             <div className="mt-5 space-y-3">
               <div className="grid grid-cols-3 gap-2 rounded-2xl border border-white/10 bg-white/[0.02] p-3 text-xs text-white/75 md:text-sm">
-                <p>{t("modules.mining.modal.singleCycle")}：<span className="text-white">{t("modules.mining.units.days", { count: selectedModel.periodDays })}</span></p>
-                <p>{t("modules.mining.modal.maxCycle")}：<span className="text-white">{t("modules.mining.units.days", { count: selectedModel.maxPeriodDays })}</span></p>
-                <p>{t("modules.mining.modal.withdrawFee")}：<span className="text-white">{selectedModel.withdrawFee}%</span></p>
+                <p>{t("modules.mining.modal.singleCycle")}：<span className="inline-block text-white">{t("modules.mining.units.days", { count: selectedModel.periodDays })}</span></p>
+                <p>{t("modules.mining.modal.maxCycle")}：<span className="inline-block text-white">{t("modules.mining.units.days", { count: selectedModel.maxPeriodDays })}</span></p>
+                <p>{t("modules.mining.modal.withdrawFee")}：<span className="inline-block text-white">{selectedModel.withdrawFee}%</span></p>
               </div>
             </div>
 
